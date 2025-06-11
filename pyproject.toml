@@ -1,0 +1,12 @@
+[project]
+name = "fund-mail"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "imapclient>=3.0.1",
+    "python-dotenv>=1.1.0",
+    "pyzmail36>=1.0.5",
+    "sqlalchemy>=2.0.41",
+]

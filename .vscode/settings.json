@@ -1,0 +1,15 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python",
+    "editor.formatOnSave": true,
+    "python.testing.pytestEnabled": true,
+    "terminal.integrated.defaultProfile.windows": "Git Bash",
+    "editor.codeActionsOnSave": {
+        // "source.fixAll.markdownlint": "explicit"
+    },
+    "github.copilot.chat.commitMessageGeneration.instructions": [
+        {
+            "text": "한글로 작성된 커밋 메시지를 생성해줘",
+        }
+    ],
+    "chat.mcp.discovery.enabled": true,
+}

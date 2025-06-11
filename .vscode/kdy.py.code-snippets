@@ -1,0 +1,21 @@
+{
+  "file comments": {
+    "prefix": "my_filecomments",
+    "body": [
+      "# $TM_FILENAME_BASE.py",
+      "\"\"\"",
+      "모듈 설명: ",
+      "\t- ${1:  설명을 넣으시오}",
+      "주요 기능:",
+      "\t- ${2:  기능을 넣으시오}",
+      "",
+      "작성자: 김도영",
+      "작성일: $CURRENT_YEAR-$CURRENT_MONTH-$CURRENT_DATE",
+      "버전: 1.0",
+      "\"\"\""
+    ]
+  },
+  "save_to_summary_db": {"prefix": "my_ss","body": ["save_to_summary_db("]},  
+  "save_error_to_summary_db": {"prefix": "my_se","body": ["save_error_to_summary_db("]},  
+}
+
