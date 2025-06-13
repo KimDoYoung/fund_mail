@@ -8,7 +8,10 @@ TENANT_ID     = os.getenv('TENANT_ID')
 CLIENT_ID     = os.getenv('CLIENT_ID')
 CLIENT_SECRET = os.getenv('CLIENT_SECRET')
 MAIL_USER     = os.getenv('EMAIL_ID')
-
+print ("TENANT_ID:", TENANT_ID)
+print ("CLIENT_ID:", CLIENT_ID) 
+print ("CLIENT_SECRET:", CLIENT_SECRET)
+print ("MAIL_USER:", MAIL_USER)
 # 1. 토큰 발급 (client-credentials)
 def get_token():
     authority = f'https://login.microsoftonline.com/{TENANT_ID}'
