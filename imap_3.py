@@ -40,6 +40,7 @@ def get_emails_via_graph():
     url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages'
     params = {
         '$top': 5,  # 최근 5개만
+        '$orderby': 'receivedDateTime desc',
         '$select': 'subject,from,receivedDateTime,hasAttachments,id'
     }
     
