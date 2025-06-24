@@ -5,6 +5,80 @@
 2. office365 메일을 가져오기위해서 IMAP 프로토콜을 사용해야하는데. OAuth2로 인증을 받아야한다.
 
 
+## 기술스택
+1. python
+2. microsoft office365
+3. sqlitedb
+4. sftp
+5. dotenv
+
+## 기능
+1. microsoft의 office365 mail을 imap으로 가져온다.
+2. sqlitedb에 보낸사람, 보낸시간, 제목, 내용을 db테이.블 fund_.mail에 넣는다. 
+3. sqlitedb의 파일명은 fm_yyyy_mm_dd_HHMM.db로 한다.
+4. 첨부파일은 지정된 폴더 .env에 기록된 attach_base_dir하위에 yyyy_mm_dd 밑에 넣는다. 
+5. sqlitedb와 다운로드된 파일을 모두 지정된 server로 sftp를 통해서 upload한다.
+중요기능
+6. 5분마다 위 동작이 이루어지며 lose된 메일은 절대로 없어야한다.
+
+## 설계
+### .env에 기술되어야할 사항들
+```bash
+#
+# OFFICE365
+#
+EMAIL_ID=fund@123.
+EMAIL_PW=123
+TENANT_ID=abc
+CLIENT_ID=def
+CLIENT_SECRET=ghi
+#
+# Folder
+#
+BASE_DIR=c:\\fund_mail\\data
+
+#
+# SFTP
+#
+HOST=
+PORT=
+SFTP_ID=
+SFTP_PW=
+```
+
+### 스케줄
+window의 tashschd또는 cron을 이용한다.
+
+### DB설계
+
+테이블명: fund_mail
+```text
+id : email_id (office365의 email_id)
+subject: email_title
+sender: email 보낸사람
+email_time: 받은 시각
+content : 내용
+```
+테이블명 : fund_mail_attach
+```text
+id : auto_increment
+parent_id : fund_main의 id
+save_folder: 저장폴더명
+file_name: 파일명
+```
+
+## 동작
+
+1. LAST_TIME.txt에 time을 저장
+2. fund_mail 수행시 LAST_TIME.txt 파일이 없으면 그 날의 00시,00분부터 메일을 가져옴
+3. 가져온 메일로 table fund_mail과 fund_mail_attach를 채우고
+4. sftp로 서버로 sql db와 첨부파일을 모두 sftp로 보냄
+5. LAST_TIME.txt에 마지막 메일의 time을 저장폴더명
+6. 5분후 last_time.txt의 시간을 읽어서 그 시각 이후의 메일을 가져온 후 3번부터 반복
+
+
+
+
 ## office365 IMAP사용을 위한 OAuth 
 1. [azure portal](https://portal.azure.com/#home)에 admin으로 login
    1. 이때 2차인증을 요구하는데, 연기하는 것 가능하다. 
