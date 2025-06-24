@@ -1,79 +1,88 @@
-"""logger.py — Unified logging helper
-====================================
-Rotating logger that rolls over at 5 MB.
+"""logger.py — 통합 회전 로거(5 MB)
+========================================
+• 로그 디렉터리: `Config.LOG_DIR` (`.env` 의 `LOG_DIR`) 값을 우선 사용하고,
+  지정되지 않은 경우 `./logs` 로 자동 대체합니다.
+• 디렉터리가 없으면 `mkdir(parents=True, exist_ok=True)` 로 자동 생성합니다.
+• 로그 파일이 5 MB 를 초과하면 최대 3개까지 순환 보관(`RotatingFileHandler`).
+• `get_logger(name)` 로 원하는 이름의 로거를 얻거나, 모듈 전역 `logger`
+  를 바로 사용하세요.
 
-• Log directory defaults to Config.LOG_DIR read from config.py; falls
-  back to ./logs if config is unavailable.
-• Uses UTF-8 RotatingFileHandler (5 MB, 3 backups) + console stream.
+사용 예::
+
+    from logger import logger, get_logger
+
+    logger.info("Fund‑Mail 시작!")
+
+    mail_logger = get_logger("fund_mail.worker")
+    mail_logger.debug("Processing batch…")
 """
-
 from __future__ import annotations
 
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any
+from typing import Optional
 
+# ─────────────────────────────── 설정 상수 ────────────────────────────────
+_MAX_BYTES: int = 5 * 1024 * 1024   # 5 MB
+_BACKUP_COUNT: int = 3
 
-def _default_log_dir() -> Path:
-    """Return log directory from Config.LOG_DIR or fallback to ./logs."""
+# ────────────────────────────── 내부 헬퍼 ─────────────────────────────────
+
+def _determine_log_dir() -> Path:
+    """`Config.LOG_DIR` 값을 확인하여 Path 를 반환한다. 지정되지 않았거나
+    예외가 발생하면 ./logs 로 폴백한다."""
     try:
-        from config import Config  # local import to avoid circular dependency
+        from config import Config  # runtime import — 순환 의존 방지
         cfg = Config.load()
-        return Path(cfg.LOG_DIR)
-    except Exception:  # pragma: no cover
-        return Path("logs")
+        log_dir: Optional[Path] = getattr(cfg, "log_dir", None)
+        if log_dir:
+            return Path(log_dir).expanduser().resolve()
+    except Exception:  # pylint: disable=broad-except
+        pass
+    return Path("./logs").expanduser().resolve()
 
 
-class Logger:  # pylint: disable=too-few-public-methods
-    """Thin wrapper around logging configured for Fund-Mail."""
+def _make_handlers(log_file: Path) -> list[logging.Handler]:
+    fmt = logging.Formatter("%(asctime)s [%(levelname).1s] %(name)s: %(message)s")
 
-    def __init__(
-        self,
-        name: str = "fund_mail",
-        log_dir: str | Path | None = None,
-        level: int = logging.INFO,
-        max_bytes: int = 5_000_000,  # 5 MB
-        backup_count: int = 3,
-    ) -> None:
-        self.log_dir = Path(log_dir) if log_dir else _default_log_dir()
-        self.log_dir.mkdir(parents=True, exist_ok=True)
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=_MAX_BYTES,
+        backupCount=_BACKUP_COUNT,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(fmt)
 
-        log_file = self.log_dir / f"{name}.log"
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(fmt)
 
-        self._logger = logging.getLogger(name)
-        self._logger.setLevel(level)
-        self._logger.propagate = False  # do not bubble up to root
-
-        # Prevent duplicate handlers when re-imported
-        if not self._logger.handlers:
-            formatter = logging.Formatter(
-                "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
-
-            file_handler = RotatingFileHandler(
-                log_file,
-                maxBytes=max_bytes,
-                backupCount=backup_count,
-                encoding="utf-8",
-            )
-            file_handler.setFormatter(formatter)
-            self._logger.addHandler(file_handler)
-
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-            self._logger.addHandler(console_handler)
-
-    # ---- convenience passthroughs ----
-    def __getattr__(self, item: str) -> Any:  # delegate to underlying logger
-        return getattr(self._logger, item)
-
-    @property
-    def logger(self) -> logging.Logger:
-        """Expose underlying logging.Logger."""
-        return self._logger
+    return [file_handler, console_handler]
 
 
-# module-level default logger
-logger: logging.Logger = Logger().logger
+# ─────────────────────────────── API ─────────────────────────────────────
+
+def get_logger(name: str = "fund_mail") -> logging.Logger:
+    """콘솔과 회전 로그 파일에 동시에 기록하는 로거를 반환한다.
+
+    동일한 이름으로 반복 호출하면 중복 핸들러 없이 동일 로거를
+    반환한다."""
+    logger = logging.getLogger(name)
+    if logger.handlers:  # 이미 초기화 완료
+        return logger
+
+    logger.setLevel(logging.INFO)
+
+    log_dir = _determine_log_dir()
+    log_dir.mkdir(parents=True, exist_ok=True)  # 디렉터리 자동 생성
+
+    handlers = _make_handlers(log_dir / f"{name}.log")
+    for h in handlers:
+        logger.addHandler(h)
+
+    logger.propagate = False  # 루트로 전파 방지
+    return logger
+
+
+# 모듈 전역 기본 로거 (이 파일 import 시 즉시 준비)
+logger = get_logger()

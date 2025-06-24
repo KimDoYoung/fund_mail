@@ -8,6 +8,7 @@ dependencies = [
     "debugpy>=1.8.14",
     "imapclient>=3.0.1",
     "msal>=1.32.3",
+    "paramiko>=3.5.1",
     "python-dotenv>=1.1.0",
     "pyzmail36>=1.0.5",
     "sqlalchemy>=2.0.41",
