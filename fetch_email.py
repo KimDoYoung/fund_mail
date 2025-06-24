@@ -151,7 +151,7 @@ def fetch_email_from_office365(config):
 
                 # 첨부파일이 있는 경우 다운로드
                 if email.get('hasAttachments'):
-                    download_attachments(email['id'], headers, db_path)
+                    download_attachments(MAIL_USER, email['id'], headers, db_path)
                 last_mail_time = email.get('receivedDateTime')
                 # 마지막 이메일 수집 시각을 저장
             save_last_fetch_time(last_mail_time, config)
@@ -163,7 +163,7 @@ def fetch_email_from_office365(config):
     except Exception as e:
         logger.error(f"❌ 오류: {e}")
 
-def download_attachments(email_id, headers, db_path):
+def download_attachments(MAIL_USER, email_id, headers, db_path):
     """첨부파일 다운로드"""
     url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages/{email_id}/attachments'
     
@@ -196,13 +196,13 @@ def download_attachments(email_id, headers, db_path):
                             cur.execute("""
                                 INSERT INTO fund_mail_attach (parent_id, save_folder, file_name)
                                 VALUES (?, ?, ?)
-                            """, (email_id, attach_path, filename))  # 현재 작업 디렉토리에 저장
+                            """, (email_id, str(attach_path), filename))  # 현재 작업 디렉토리에 저장
                             conn.commit()
                             conn.close()
                             logger.info(f"📎 첨부파일 DB 저장: {filename} ({email_id})"
                                          f" - 저장 폴더: {attach_path}")
                         except sqlite3.Error as e:
-                            logger.error(f"DB 첨부파일 저장 오류: {e}")
+                            logger.error(f"❌ DB 첨부파일 저장 오류: {e}")
         else:
             logger.error(f"❌ 첨부파일 API 호출 실패: {response.status_code}")
             logger.error(response.text)
