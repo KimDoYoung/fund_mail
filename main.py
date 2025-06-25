@@ -2,7 +2,8 @@ import threading
 import time
 from datetime import datetime
 from config import Config # noqa: E402
-from fetch_email import fetch_email_from_office365, upload_to_sftp
+from fetch_email import fetch_email_from_office365
+from sftp_upload import upload_to_sftp  # noqa: E402
 from logger import logger
 
 
