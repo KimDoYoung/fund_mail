@@ -211,7 +211,9 @@ def fetch_email_from_office365(config):
             emails = response.json().get('value', [])
             logger.info(f"✅ {len(emails)}개의 이메일을 가져왔습니다:")
             last_mail_time = None
+            count = 0
             for email in emails:
+                logger.info("--------------------------------------------------------")
                 email_id = email.get('id', 'ID 없음')
                 subject = email.get('subject', '제목 없음')
                 sender = email.get('from', {}).get('emailAddress', {}).get('address', '발신자 없음')
@@ -222,6 +224,7 @@ def fetch_email_from_office365(config):
                 content = get_message_body(graph, MAIL_USER, email_id) or '내용 없음'                
                 kst_time = utc_to_kst(received_time, as_iso=True)  # KST로 변환
                 # DB에 저장
+                
                 try:
                     conn = sqlite3.connect(db_path)
                     cur = conn.cursor()
@@ -236,7 +239,8 @@ def fetch_email_from_office365(config):
                     parent_id = cur.fetchone()[0]  # 마지막으로 삽입된 행의
 
                     conn.close()
-                    logger.info(f"✅ 이메일 저장: {subject} "
+                    count = count + 1
+                    logger.info(f"✅ {count} 이메일 DB에 저장: {subject} "
                                  f" - 발신자: {sender}, 날짜(KST): {kst_time}")
                 except sqlite3.Error as e:
                     logger.error(f"❌ DB 저장 오류: {e}")
@@ -244,6 +248,8 @@ def fetch_email_from_office365(config):
                 # 첨부파일이 있는 경우 다운로드
                 if email.get('hasAttachments'):
                     download_attachments(parent_id, MAIL_USER, email['id'], headers, db_path)
+                # logger.info("--------------------------------------------------------")
+
                 last_mail_time = email.get('receivedDateTime')
                 # 마지막 이메일 수집 시각을 저장
             save_last_fetch_time(last_mail_time, config)
@@ -312,7 +318,7 @@ def download_attachments(parent_id, MAIL_USER, email_id, headers, db_path):
         
         if response.status_code == 200:
             attachments = response.json().get('value', [])
-            
+            attach_count = 0
             for attachment in attachments:
                 if attachment.get("@odata.type") != "#microsoft.graph.fileAttachment":
                     continue                        # 참조·메시지 첨부 등
@@ -335,7 +341,7 @@ def download_attachments(parent_id, MAIL_USER, email_id, headers, db_path):
                     filepath = if_exist_change_filename(filepath)  # 중복 파일명 처리
                     with open(filepath, 'wb') as f:
                         f.write(file_data)
-                    logger.info(f"✅ 첨부파일 저장: {filename}")
+                    # logger.info(f"✅ 첨부파일 물리적 저장: {filename}")
                     # DB에 첨부파일 정보 저장
                     try:
                         conn = sqlite3.connect(db_path)
@@ -346,8 +352,8 @@ def download_attachments(parent_id, MAIL_USER, email_id, headers, db_path):
                         """, (parent_id, email_id, str(attach_path), filename))  # 현재 작업 디렉토리에 저장
                         conn.commit()
                         conn.close()
-                        logger.info(f"✅ 첨부파일 DB 저장: {filename} ({email_id})"
-                                        f" - 저장 폴더: {attach_path}")
+                        attach_count = attach_count + 1
+                        logger.info(f"✅ 첨부파일 {attach_count} DB 저장: {filename},  저장 폴더: {attach_path}")
                     except sqlite3.Error as e:
                         logger.error(f"❌ DB 첨부파일 저장 오류: {e}")
         else:
