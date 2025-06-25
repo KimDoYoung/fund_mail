@@ -75,9 +75,9 @@ def init_db_path(config):
         """)        
         conn.commit()
         conn.close()
-        logger.info(f"DB 파일 생성: {db_path}")
+        logger.info(f"✅ DB 파일 생성: {db_path}")
     else:
-        logger.info(f"DB 파일 경로: {db_path}") 
+        logger.info(f"✅ DB 파일 경로: {db_path}") 
     return db_path
 
 
@@ -120,7 +120,8 @@ def get_message_body(graph: requests.Session,MAIL_USER:str, message_id: str) -> 
     # url = f"https://graph.microsoft.com/v1.0/me/messages/{message_id}"
     url = f"https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages/{message_id}"
     params  = {"$select": "body"}              # body 외 필드가 필요하면 , 로 추가
-    headers = {'Prefer': 'outlook.body-content-type="text"'}  # → 평문으로 받기
+    # headers = {'Prefer': 'outlook.body-content-type="text"'}  # → 평문으로 받기
+    headers = {'Prefer': 'outlook.body-content-type="html"'}  # → 평문으로 받기
 
     r = graph.get(url, params=params, headers=headers, timeout=30)
 
@@ -235,10 +236,10 @@ def fetch_email_from_office365(config):
                     parent_id = cur.fetchone()[0]  # 마지막으로 삽입된 행의
 
                     conn.close()
-                    logger.info(f"📧 이메일 저장: {subject} ({email_id})"
-                                 f" - 발신자: {sender}, 날짜: {received_time}")
+                    logger.info(f"✅ 이메일 저장: {subject} "
+                                 f" - 발신자: {sender}, 날짜(KST): {kst_time}")
                 except sqlite3.Error as e:
-                    logger.error(f"DB 저장 오류: {e}")
+                    logger.error(f"❌ DB 저장 오류: {e}")
 
                 # 첨부파일이 있는 경우 다운로드
                 if email.get('hasAttachments'):
@@ -329,12 +330,12 @@ def download_attachments(parent_id, MAIL_USER, email_id, headers, db_path):
                     attach_path = db_path.parent / 'attach'
                     if not attach_path.exists():
                         attach_path.mkdir(parents=True, exist_ok=True)
-                        logger.info(f"첨부파일 폴더 생성: {attach_path}")
+                        logger.info(f"✅ 첨부파일 폴더 생성: {attach_path}")
                     filepath = os.path.join(attach_path, filename)
                     filepath = if_exist_change_filename(filepath)  # 중복 파일명 처리
                     with open(filepath, 'wb') as f:
                         f.write(file_data)
-                    logger.info(f"📎 첨부파일 저장: {filename}")
+                    logger.info(f"✅ 첨부파일 저장: {filename}")
                     # DB에 첨부파일 정보 저장
                     try:
                         conn = sqlite3.connect(db_path)
@@ -345,7 +346,7 @@ def download_attachments(parent_id, MAIL_USER, email_id, headers, db_path):
                         """, (parent_id, email_id, str(attach_path), filename))  # 현재 작업 디렉토리에 저장
                         conn.commit()
                         conn.close()
-                        logger.info(f"📎 첨부파일 DB 저장: {filename} ({email_id})"
+                        logger.info(f"✅ 첨부파일 DB 저장: {filename} ({email_id})"
                                         f" - 저장 폴더: {attach_path}")
                     except sqlite3.Error as e:
                         logger.error(f"❌ DB 첨부파일 저장 오류: {e}")

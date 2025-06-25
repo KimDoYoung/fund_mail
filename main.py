@@ -17,13 +17,17 @@ class TaskScheduler:
 
     def _run_task(self):
         try:
+            logger.info("===========================================================")
             logger.info(f"작업이 시작됩니다. 작업 시작: {datetime.now()}")
+            logger.info("===========================================================")
             # 실제 작업 로직
             db_path = fetch_email_from_office365(self.config)  # 이메일 가져오기
             upload_to_sftp(self.config, db_path)  # SFTP 업로드
+            logger.info("===========================================================")
             logger.info("작업이 완료되었습니다. 완료 시각: %s", datetime.now())
+            logger.info("===========================================================")
         except Exception as e:
-            logger.error(f"[ERROR] {e}")
+            logger.error(f"❌ [ERROR] {e}")
         finally:
             # 다음 실행 예약
             if self._running.is_set():
