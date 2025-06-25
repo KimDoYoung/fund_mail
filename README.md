@@ -76,8 +76,11 @@ file_name: 파일명
 5. LAST_TIME.txt에 마지막 메일의 time을 저장폴더명
 6. 5분후 last_time.txt의 시간을 읽어서 그 시각 이후의 메일을 가져온 후 3번부터 반복
 
-
-
+## 배포
+1. window pc에 배포한다
+2. 설치문서 INSTALL.md 참조
+   1. Window Service로 동작하게 한다.
+   2. 기본 폴더 c:\fund_mail 로 한다
 
 ## office365 IMAP사용을 위한 OAuth 
 1. [azure portal](https://portal.azure.com/#home)에 admin으로 login
