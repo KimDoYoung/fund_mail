@@ -107,7 +107,7 @@ def save_last_fetch_time(last_mail_time, config):
             json.dump(data, f, indent=4)
             f.truncate()
 
-        logger.info(f"✅ 마지막 이메일 수집 시각 저장: {ts}")
+        logger.info(f"✏️ 마지막 이메일 수집 시각 저장: {ts}")
 
     except Exception as e:
         logger.error(f"❌ 마지막 이메일 수집 시각 저장 오류: {e}")

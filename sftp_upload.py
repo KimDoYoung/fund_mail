@@ -54,6 +54,8 @@ def upload_to_sftp(config, db_path):
     """SFTP 서버에 DB 파일과 첨부파일 업로드"""
     transport = None
     sftp = None
+    logger.info("------------------------------------------------------------")
+    logger.info("🔴 SFTP 업로드 시작")
     try:
         transport = paramiko.Transport((config.sftp_host, config.sftp_port))
         transport.connect(username=config.sftp_id, password=config.sftp_pw)
@@ -73,14 +75,15 @@ def upload_to_sftp(config, db_path):
         file_list = get_local_attach_file_list(db_path)
         if file_list:                        # 첨부파일이 하나라도 있으면
             mkdir_p(sftp, attach_dir)
-
+        count = 0
         for file_path in file_list:
             if os.path.exists(file_path):
                 remote_attach_path = f"{attach_dir}/{os.path.basename(file_path)}"
                 sftp.put(file_path, remote_attach_path)
-                logger.info(f"첨부파일 SFTP 업로드 완료: {remote_attach_path}")
+                count += 1
+                logger.info(f"✅ {count} 첨부파일 SFTP 업로드 완료: {remote_attach_path}")
             else:
-                logger.warning(f"첨부파일 경로가 존재하지 않음: {file_path}")
+                logger.warning(f"⚠️ 첨부파일 경로가 존재하지 않음: {file_path}")
 
     except Exception as e:
         logger.error(f"❌ SFTP 업로드 오류: {e}")
@@ -91,4 +94,4 @@ def upload_to_sftp(config, db_path):
             sftp.close()
         if transport:
             transport.close()
-        logger.info("SFTP 연결 종료")
+        logger.info("🔴 SFTP 연결 종료")
