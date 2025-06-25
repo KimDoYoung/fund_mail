@@ -44,10 +44,7 @@ class TaskScheduler:
         if self._timer is not None:
             self._timer.cancel()       # 예약된 타이머 취소
 
-
-
-# 사용 예시
-if __name__ == "__main__":
+def fetch_fund_mail():
     scheduler = TaskScheduler()
     scheduler.start()
     try:
@@ -55,4 +52,16 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         scheduler.stop()
-        logger.info("스케줄러가 중단되었습니다.")
+        logger.info("스케줄러가 중단되었습니다.")    
+
+# 사용 예시
+if __name__ == "__main__":
+    fetch_fund_mail()
+    # scheduler = TaskScheduler()
+    # scheduler.start()
+    # try:
+    #     while True:
+    #         time.sleep(1)
+    # except KeyboardInterrupt:
+    #     scheduler.stop()
+    #     logger.info("스케줄러가 중단되었습니다.")
