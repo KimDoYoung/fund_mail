@@ -2,25 +2,30 @@
 
 ## 1. 사전 준비
 
-### Python 설치
+### uv & Python 설치
 ```cmd
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+uv --version
 # Python 3.8+ 설치 (Microsoft Store 또는 python.org에서)
+uv python install 3.12
 python --version
 ```
 
 ### 프로젝트 설정
 ```cmd
 # 프로젝트 폴더로 이동
+git clone <url>
 cd C:\fund_mail
 
 # 가상환경 생성
-python -m venv venv
+uv venv
 
 # 가상환경 활성화
-venv\Scripts\activate
+source .venv\Scripts\activate
 
 # 의존성 설치
-pip install -r requirements.txt
+uv sync
+
 ```
 
 ## 2. 서비스 설치
@@ -35,7 +40,7 @@ manage_service.bat
 ### 방법 2: 수동 설치
 ```cmd
 # 관리자 권한으로 실행
-venv\Scripts\activate
+.venv\Scripts\activate
 python service_wrapper.py install
 ```
 
@@ -50,7 +55,7 @@ sc query EmailFetchService
 ```
 
 ## 5. 로그 확인
-- 위치: `C:\ProgramData\EmailFetchService\logs\service.log`
+- 위치: `C:\fund_mail\logs\service.log`
 - Windows 이벤트 뷰어에서도 확인 가능
 
 ## 6. 서비스 제거
