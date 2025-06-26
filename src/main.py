@@ -1,6 +1,7 @@
 import threading
 import time
 import sys
+import shutil
 from datetime import datetime
 from config import Config # noqa: E402
 from fetch_email import fetch_email_from_office365
@@ -22,7 +23,10 @@ class TaskScheduler:
             logger.info("=" * 59)
             logger.info("⏺️ fund메일 수집이 시작됩니다.   작업 시작: %s", datetime.now())
             logger.info("=" * 59)
-
+            # 
+            # self.config.last_time_file의 백업을 만든다.
+            backup_path = self.config.last_time_file + ".bak"
+            shutil.copy2(self.config.last_time_file, backup_path)
             db_path = fetch_email_from_office365(self.config)
             if db_path:                    # db_path가 None → 첫 실행(수집만, SFTP 생략)
                 upload_to_sftp(self.config, db_path)
@@ -36,6 +40,12 @@ class TaskScheduler:
             logger.exception("⛔ fund메일 작업 중 예외 발생 - 프로그램을 종료합니다.")
             logger.info("=" * 59)
             self.stop()                    # 타이머 취소 및 플래그 클리어
+            #백업을 복구
+            if shutil.os.path.exists(backup_path):
+                shutil.copy2(backup_path, self.config.last_time_file)
+                logger.warning("⚠️백업된 LAST_TIME.json을 복구했습니다: %s", backup_path)
+            else:
+                logger.error("❌ 백업 파일이 존재하지 않습니다: %s", backup_path)
             raise                          # 메인 루프까지 예외 전파
         finally:
             # 정상 종료 + 스케줄러가 살아있을 때만 다음 실행 예약
