@@ -1,5 +1,6 @@
 import threading
 import time
+import sys
 from datetime import datetime
 from config import Config # noqa: E402
 from fetch_email import fetch_email_from_office365
@@ -16,22 +17,29 @@ class TaskScheduler:
         self.config = Config.load()  # 환경 변수 로드
 
     def _run_task(self):
+        success = False                    # 실행 결과 플래그
         try:
-            logger.info("===========================================================")
-            logger.info(f"▶️ fund메일 수집이 시작됩니다.   작업 시작: {datetime.now()}")
-            logger.info("===========================================================")
-            # 실제 작업 로직
-            db_path = fetch_email_from_office365(self.config)  # 이메일 가져오기
-            if db_path: # 처음이 아니라면 
-                upload_to_sftp(self.config, db_path)  # SFTP 업로드
-            logger.info("===========================================================")
+            logger.info("=" * 59)
+            logger.info("⏺️ fund메일 수집이 시작됩니다.   작업 시작: %s", datetime.now())
+            logger.info("=" * 59)
+
+            db_path = fetch_email_from_office365(self.config)
+            if db_path:                    # db_path가 None → 첫 실행(수집만, SFTP 생략)
+                upload_to_sftp(self.config, db_path)
+
+            logger.info("=" * 59)
             logger.info("⏺️ fund메일 작업이 완료되었습니다. 완료 시각: %s", datetime.now())
-            logger.info("===========================================================")
-        except Exception as e:
-            logger.error(f"❌ [ERROR] {e}")
+            logger.info("=" * 59)
+            success = True                 # 여기까지 오면 정상
+        except Exception:
+            logger.info("=" * 59)
+            logger.exception("⛔ fund메일 작업 중 예외 발생 - 프로그램을 종료합니다.")
+            logger.info("=" * 59)
+            self.stop()                    # 타이머 취소 및 플래그 클리어
+            raise                          # 메인 루프까지 예외 전파
         finally:
-            # 다음 실행 예약
-            if self._running.is_set():
+            # 정상 종료 + 스케줄러가 살아있을 때만 다음 실행 예약
+            if success and self._running.is_set():
                 self._timer = threading.Timer(self.interval, self._run_task)
                 self._timer.start()
 
@@ -47,13 +55,17 @@ class TaskScheduler:
 
 def fetch_fund_mail():
     scheduler = TaskScheduler()
-    scheduler.start()
     try:
+        scheduler.start()      # start() 내부에서 _run_task() 처음 실행
         while True:
-            time.sleep(1)
+            time.sleep(1)      # Ctrl-C 처리용 루프
     except KeyboardInterrupt:
         scheduler.stop()
-        logger.info("스케줄러가 중단되었습니다.")    
+        logger.info("⏹️  사용자가 스케줄러를 중단했습니다.")
+    except Exception:
+        # _run_task 에서 올라온 예외 – 이미 로그 찍었으므로 종료만
+        scheduler.stop()
+        sys.exit(1)
 
 # 사용 예시
 if __name__ == "__main__":

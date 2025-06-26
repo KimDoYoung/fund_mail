@@ -17,5 +17,8 @@ class DBCreateError(FundMailError):
 class DBWriteError(FundMailError):
     """DB INSERT/UPDATE 실패"""
 
+class DBQueryError(FundMailError):
+    """DB SELECT 실패"""
+
 class SFTPUploadError(FundMailError):
     """SFTP 업로드 실패"""

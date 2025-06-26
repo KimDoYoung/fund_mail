@@ -56,7 +56,7 @@ def save_email_data_to_db(email_data_list, db_path):
         with sqlite3.connect(db_path) as conn:
             conn.execute("PRAGMA foreign_keys = ON")
             cur = conn.cursor()
-
+            attach_count = 0
             for email in email_data_list:
                 # --- 1) 메일 INSERT ---------------------------------
                 cur.execute("""
@@ -90,11 +90,10 @@ def save_email_data_to_db(email_data_list, db_path):
                           (parent_id, email_id, save_folder, file_name)
                     VALUES (?, ?, ?, ?)
                 """, attach_rows)
-
+                attach_count = attach_count + len(attach_rows)
             # with-블록을 무사히 통과해야만 COMMIT 발생
-            logger.info("✅ 이메일·첨부파일 %d건 트랜잭션 저장 완료", len(email_data_list))
-
+            logger.info("✅ 이메일 %d건, 첨부파일 %d개 트랜잭션 저장 완료", len(email_data_list), attach_count)
+        return db_path
     except sqlite3.Error as e:
-        # 여기까지 왔다는 건 이미 ROLLBACK 된 상태
-        logger.exception("❌ DB 저장 실패 - 전체 롤백됨")
+        # 예외 발생 시 자동 ROLLBACK
         raise DBWriteError("❌ DB 저장 실패 - 전체 롤백됨")

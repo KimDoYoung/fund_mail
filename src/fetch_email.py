@@ -8,7 +8,7 @@ from datetime import datetime, time, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from exceptions import AttachFileFetchError
+from exceptions import AttachFileFetchError, TokenError
 from exceptions import EmailFetchError
 from logger import get_logger
 from db_actions import create_db_tables, save_email_data_to_db
@@ -88,7 +88,7 @@ def get_ymd_path_and_dbpath(config):
 #     return db_path
 
 
-def save_last_email_id_and_time(last_mail_time, last_email_id, config):
+def save_last_email_id_and_time(last_mail_time, last_email_id, title, config):
     """
     마지막 이메일 수집 시각을 LAST_TIME.json에 저장
     """
@@ -111,11 +111,12 @@ def save_last_email_id_and_time(last_mail_time, last_email_id, config):
             data = json.load(f)
             data["last_fetch_time"] = ts
             data["last_email_id"] = last_email_id
+            data["last_fetch_time_kst"] = utc_to_kst(ts, as_iso=True)  # KST로 변환
+            data["title"] = title  # 제목 추가
             f.seek(0)
-            json.dump(data, f, indent=4)
+            json.dump(data, f, indent=4, ensure_ascii=False)
             f.truncate()
-
-        logger.info(f"✏️ 마지막 이메일 수집 시각 저장: {ts}")
+        logger.info(f"✏️ 마지막 이메일 수집 시각 저장: [{json.dumps(data, ensure_ascii=False)}]")
 
     except Exception as e:
         logger.error(f"❌ 마지막 이메일 수집 시각 저장 오류: {e}")
@@ -235,7 +236,8 @@ def fetch_email_from_office365(config):
 
     token = get_graph_token(config)
     if not token:
-        return
+        raise TokenError("❌ Graph API 토큰 발급 실패")
+
     headers = {
         'Authorization': f'Bearer {token}',
         'Content-Type': 'application/json'
@@ -243,28 +245,38 @@ def fetch_email_from_office365(config):
     
     # LAST_TIME.json에서 최종 email_id를 가져온다.
     last_email_id = config.last_email_id
-    fetch_count = 1000
     is_first_fetch = False
 
     if not last_email_id:
-        fetch_count = 1
         is_first_fetch = True
-        logger.warning("마지막 이메일 ID가 없으므로, 1건만 가져옵니다.")
+        logger.warning("⚠️마지막 이메일 ID가 없으므로(LAST_TIME.json 없는지 체크), 1건만 가져옵니다.")
+        params = {
+            "$orderby": "receivedDateTime desc",                    # 최신부터
+            "$top": 1,                                             # 1개만
+            "$select": (
+                "subject,from,receivedDateTime,hasAttachments,id,"
+                "toRecipients,ccRecipients"
+            )
+        }    
+    else:
+        cursor = config.last_mail_fetch_time
+        cursor_str = cursor.astimezone(timezone.utc)          \
+                        .strftime('%Y-%m-%dT%H:%M:%SZ')  # → '2025-06-23T15:00:00Z'    
+        params = {
+            # 오늘 00:00 이후 메일 전부
+            "$filter": f"receivedDateTime ge {cursor_str}",
+            # 페이지당 최대 1000건 (더 많으면 @odata.nextLink 로 자동 페이지 이동)
+            "$orderby": "receivedDateTime desc",               # ← 정렬 추가
+            "$top": 1000,
+            # 원하는 필드만 선택
+            "$select": "subject,from,receivedDateTime,hasAttachments,id,toRecipients,ccRecipients"
+        }
     
     # cursor = config.last_mail_fetch_time
     # cursor_str = cursor.astimezone(timezone.utc)          \
     #                  .strftime('%Y-%m-%dT%H:%M:%SZ')  # → '2025-06-23T15:00:00Z'    
     # 예: '2025-06-23T15:00:00Z'    
     url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages'
-    params = {
-        # 오늘 00:00 이후 메일 전부
-        # "$filter": f"receivedDateTime ge {cursor_str}",
-        # 페이지당 최대 1000건 (더 많으면 @odata.nextLink 로 자동 페이지 이동)
-        "$orderby": "receivedDateTime desc",               # ← 정렬 추가
-        "$top": {fetch_count},
-        # 원하는 필드만 선택
-        "$select": "subject,from,receivedDateTime,hasAttachments,id,toRecipients,ccRecipients"
-    }
     
     try:
         graph = requests.Session()
@@ -278,10 +290,11 @@ def fetch_email_from_office365(config):
         email_data_list = []
         if response.status_code == 200:
             emails = response.json().get('value', [])
-            logger.info(f"✅ {len(emails)}개의 이메일을 가져왔습니다:")
+            logger.info(f"✅ {len(emails)}개의 이메일을 가져왔습니다. 새로운 메일:{len(emails)-1}, 마지막 1개는 체크용임")
             last_mail_time = None
+            count = 0
+            logger.info("--------------------------------------------------------")
             for email in emails:
-                logger.info("--------------------------------------------------------")
                 email_id = email.get('id', 'ID 없음')
                 subject = email.get('subject', '제목 없음')
                 sender = email.get('from', {}).get('emailAddress', {}).get('address', '발신자 없음')
@@ -298,10 +311,10 @@ def fetch_email_from_office365(config):
 
                 if is_first_fetch:
                     last_email_id = email_id
-                    logger.info(f"첫 번째 이메일 수집: {email_id} - {subject}")
+                    logger.info(f"가장 최근 이메일 수집: {email_id} - {subject}")
                     break
                 if last_email_id == email_id:
-                    logger.info(f"마지막 이메일 ID와 일치: {email_id} - {subject}")
+                    logger.info(f"마지막 이메일 ID와 일치합니다. 수집을 중단합니다.")
                     break    
                 # 첨부파일이 있는 경우 다운로드
                 if email.get('hasAttachments'):
@@ -318,23 +331,28 @@ def fetch_email_from_office365(config):
                     'content': content,
                     'attach_files': attach_files if not is_first_fetch else []
                 })
-                # 마지막 이메일 수집 시각을 저장
-            if email_data_list:
-                # 마지막 이메일 수집 시각과 ID를 저장, DB생성, DB에 저장
-                last_email_id = email_data_list[0]['email_id']
-                create_db_tables(db_path)  # DB 초기화
-                save_last_email_id_and_time(last_mail_time, last_email_id, config)
-                db_path = save_email_data_to_db(email_data_list, db_path)
+                count += 1
+                logger.info(f"{count} : {subject} ({kst_time}), 첨부파일 개수: {len(attach_files) if not is_first_fetch else 0}")
+            logger.info("--------------------------------------------------------")
+            # 처음이면 last_time.json저장    
+            if is_first_fetch:
+                save_last_email_id_and_time(last_mail_time, last_email_id, subject, config)
+            elif email_data_list:
+                    last_email_id = email_data_list[0]['email_id']
+                    title = email_data_list[0]['subject']
+                    create_db_tables(db_path)  # DB 초기화
+                    # 마지막 이메일 ID와 시각 저장
+                    save_last_email_id_and_time(last_mail_time, last_email_id, title, config)
+                    # DB에 저장 
+                    db_path = save_email_data_to_db(email_data_list, db_path)
             else:
-                logger.warning("수집된 이메일이 없습니다.")
+                logger.warning(f"⚠️ 시각: {last_mail_time} 으로부터 수신된 이메일이 없습니다.")
+                db_path = None
             return db_path
         else:
-            logger.error(f"❌ API 호출 실패: {response.status_code}")
-            logger.error(response.text)
             raise EmailFetchError(f"❌ API 호출 실패: {response.status_code} - {response.text}")
             
     except Exception as e:
-        logger.error(f"❌ 오류: {e}")
         raise EmailFetchError(f"❌ 이메일 수집시 알려지지 않은 오류: {e}")
 
 
@@ -382,10 +400,7 @@ def download_attachments(MAIL_USER, email_id, headers, ymd_path):
                         'file_name': os.path.basename(filepath)
                     })
         else:
-            logger.error(f"❌ 첨부파일 API 호출 실패: {response.status_code}")
-            logger.error(response.text)
-            raise AttachFileFetchError(f"❌ 첨부파일 API 호출 실패: {response.status_code} - {response.text}")
+            raise AttachFileFetchError(f"첨부파일 API 호출 실패: {response.status_code} - {response.text}")
         return attach_files
     except Exception as e:
-        logger.error(f"❌ 첨부파일 다운로드 오류: {e}")
-        raise  AttachFileFetchError(f"❌ 첨부파일 URL 호출 실패 오류: {e}")
+        raise  AttachFileFetchError(f"❌ {e}")

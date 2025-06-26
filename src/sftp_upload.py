@@ -3,7 +3,10 @@ import errno
 from datetime import datetime, timezone
 import paramiko
 import sqlite3
+from exceptions import SFTPUploadError
+from exceptions import DBQueryError
 from logger import get_logger
+
 
 logger = get_logger()
 
@@ -45,8 +48,7 @@ def get_local_attach_file_list(db_path):
         file_list = [os.path.join(row[0], row[1]) for row in rows]
         return file_list
     except sqlite3.Error as e:
-        logger.error(f"❌ DB 첨부파일 목록 조회 오류: {e}")
-        return []    
+        raise DBQueryError(f"❌ DB 첨부파일 목록 조회 오류: {e}")
 
 
 
@@ -68,7 +70,7 @@ def upload_to_sftp(config, db_path):
 
         remote_db_path = f"{remote_dir}/{os.path.basename(db_path)}"
         sftp.put(str(db_path), remote_db_path)
-        logger.info(f"✅ DB 파일 SFTP 업로드 완료: {remote_db_path}")
+        logger.info(f"DB 파일 SFTP 업로드 완료: {remote_db_path}")
 
         # === 2) 첨부파일 업로드 ===
         attach_dir = f"{remote_dir}/attach"
@@ -81,13 +83,12 @@ def upload_to_sftp(config, db_path):
                 remote_attach_path = f"{attach_dir}/{os.path.basename(file_path)}"
                 sftp.put(file_path, remote_attach_path)
                 count += 1
-                logger.info(f"✅ {count} 첨부파일 SFTP 업로드 완료: {remote_attach_path}")
+                logger.info(f"{count} 첨부파일 SFTP 업로드 완료: {remote_attach_path}")
             else:
-                logger.warning(f"⚠️ 첨부파일 경로가 존재하지 않음: {file_path}")
+                raise SFTPUploadError(f"❌ 첨부파일 경로가 존재하지 않음: {file_path}")
 
     except Exception as e:
-        logger.error(f"❌ SFTP 업로드 오류: {e}")
-        raise
+        raise SFTPUploadError(f"❌ SFTP 업로드 중 오류 발생: {e}")
     finally:
         # `close()`는 idempotent하므로 중복 호출해도 안전
         if sftp:
