@@ -104,6 +104,8 @@ class Config:
     @property
     def last_time_file(self) -> Path:
         """`LAST_TIME.json` 전체 경로."""
+        if not self.data_dir.exists():
+            self.data_dir.mkdir(parents=True, exist_ok=True)
         return self.data_dir / "LAST_TIME.json"
 
     # ──────────────────────── 커서 로딩 헬퍼 ────────────────────────────

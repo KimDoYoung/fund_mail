@@ -25,13 +25,15 @@ class TaskScheduler:
             logger.info("=" * 59)
             # 
             # self.config.last_time_file의 백업을 만든다.
-            backup_path = self.config.last_time_file.with_suffix(self.config.last_time_file.suffix + ".previous")
-            shutil.copy2(self.config.last_time_file, backup_path)
+            backup_path = None
+            if self.config.last_time_file.exists():
+                backup_path = self.config.last_time_file.with_suffix(self.config.last_time_file.suffix + ".previous")
+                shutil.copy2(self.config.last_time_file, backup_path)
             db_path = fetch_email_from_office365(self.config)
             if db_path: 
                 upload_to_sftp(self.config, db_path)
     
-            if shutil.os.path.exists(backup_path):
+            if backup_path and shutil.os.path.exists(backup_path):
                 shutil.os.remove(backup_path)  # 백업 파일 삭제                
 
             logger.info("=" * 59)
@@ -44,7 +46,7 @@ class TaskScheduler:
             logger.info("=" * 59)
             self.stop()                    # 타이머 취소 및 플래그 클리어
             #백업을 복구
-            if shutil.os.path.exists(backup_path):
+            if backup_path and shutil.os.path.exists(backup_path):
                 shutil.copy2(backup_path, self.config.last_time_file)
                 logger.warning("⚠️백업된 LAST_TIME.json을 복구했습니다: %s", backup_path)
             else:
