@@ -53,28 +53,28 @@ window의 tashschd또는 cron을 이용한다.
 
 테이블명: fund_mail
 ```text
-id : email_id (office365의 email_id)
-subject: email_title
-sender: email 보낸사람
-email_time: 받은 시각
-content : 내용
+CREATE TABLE fund_mail (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  
+            email_id TEXT ,  -- office365의 email_id
+            subject TEXT,
+            sender TEXT,
+            to_recipients TEXT,  -- 수신자 목록
+            cc_recipients TEXT,  -- 참조자 목록
+            email_time TEXT,
+            kst_time TEXT,
+            content TEXT
+        )
 ```
 테이블명 : fund_mail_attach
 ```text
-id : auto_increment
-parent_id : fund_main의 id
-save_folder: 저장폴더명
-file_name: 파일명
+CREATE TABLE fund_mail_attach (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            parent_id INTEGER,
+            email_id TEXT,  -- fund_mail 테이블의 id
+            save_folder TEXT,
+            file_name TEXT
+        )
 ```
-
-## 동작
-
-1. LAST_TIME.txt에 time을 저장
-2. fund_mail 수행시 LAST_TIME.txt 파일이 없으면 그 날의 00시,00분부터 메일을 가져옴
-3. 가져온 메일로 table fund_mail과 fund_mail_attach를 채우고
-4. sftp로 서버로 sql db와 첨부파일을 모두 sftp로 보냄
-5. LAST_TIME.txt에 마지막 메일의 time을 저장폴더명
-6. 5분후 last_time.txt의 시간을 읽어서 그 시각 이후의 메일을 가져온 후 3번부터 반복
 
 ## 동작-Refactoring
 1. LAST_TIME.json 에서 마지막 email_id를 읽어온다.
@@ -85,6 +85,7 @@ file_name: 파일명
 6. sftp로 올린다.
 7. LAST_TIME에 최종 시각을 저장한다.
 8. 5분 대기
+
 ## 배포
 1. window pc에 배포한다
 2. 설치문서 INSTALL.md 참조
