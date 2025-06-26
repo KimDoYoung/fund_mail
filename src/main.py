@@ -25,11 +25,14 @@ class TaskScheduler:
             logger.info("=" * 59)
             # 
             # self.config.last_time_file의 백업을 만든다.
-            backup_path = self.config.last_time_file + ".bak"
+            backup_path = self.config.last_time_file.with_suffix(self.config.last_time_file.suffix + ".previous")
             shutil.copy2(self.config.last_time_file, backup_path)
             db_path = fetch_email_from_office365(self.config)
-            if db_path:                    # db_path가 None → 첫 실행(수집만, SFTP 생략)
+            if db_path: 
                 upload_to_sftp(self.config, db_path)
+    
+            if shutil.os.path.exists(backup_path):
+                shutil.os.remove(backup_path)  # 백업 파일 삭제                
 
             logger.info("=" * 59)
             logger.info("⏺️ fund메일 작업이 완료되었습니다. 완료 시각: %s", datetime.now())

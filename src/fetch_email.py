@@ -317,6 +317,7 @@ def fetch_email_from_office365(config):
                     logger.info(f"마지막 이메일 ID와 일치합니다. 수집을 중단합니다.")
                     break    
                 # 첨부파일이 있는 경우 다운로드
+                attach_files= []
                 if email.get('hasAttachments'):
                     attach_files = download_attachments( MAIL_USER, email['id'], headers, ymd_path)
                 # 데이터 메모리에 저장
@@ -346,7 +347,8 @@ def fetch_email_from_office365(config):
                     # DB에 저장 
                     db_path = save_email_data_to_db(email_data_list, db_path)
             else:
-                logger.warning(f"⚠️ 시각: {last_mail_time} 으로부터 수신된 이메일이 없습니다.")
+                kst = utc_to_kst(last_mail_time, as_iso=True) if last_mail_time else '알 수 없음'
+                logger.warning(f"⚠️ 시각: {kst} 으로부터 수신된 이메일이 없습니다.")
                 db_path = None
             return db_path
         else:
