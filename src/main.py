@@ -22,7 +22,8 @@ class TaskScheduler:
             logger.info("===========================================================")
             # 실제 작업 로직
             db_path = fetch_email_from_office365(self.config)  # 이메일 가져오기
-            upload_to_sftp(self.config, db_path)  # SFTP 업로드
+            if db_path: # 처음이 아니라면 
+                upload_to_sftp(self.config, db_path)  # SFTP 업로드
             logger.info("===========================================================")
             logger.info("⏺️ fund메일 작업이 완료되었습니다. 완료 시각: %s", datetime.now())
             logger.info("===========================================================")

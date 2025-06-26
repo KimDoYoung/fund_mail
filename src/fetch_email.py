@@ -8,7 +8,10 @@ from datetime import datetime, time, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from exceptions import AttachFileFetchError
+from exceptions import EmailFetchError
 from logger import get_logger
+from db_actions import create_db_tables, save_email_data_to_db
 
 logger = get_logger()
 
@@ -34,9 +37,9 @@ def get_graph_token(config):
     else:
         logger.error("토큰 발급 실패:", result.get('error_description'))
         return None
-   
-def init_db_path(config):
-    """DB 파일 경로 초기화"""
+
+def get_ymd_path_and_dbpath(config):
+    ''' 현재 날짜를 'YYYY_MM_DD' 형식으로 반환 폴더 경로 및 DB명 생성'''
     data_dir = config.data_dir
     # ymd_time = datetime.now(timezone.utc).strftime('%Y_%m_%d_%H_%M')
     ymd_time = datetime.now().strftime('%Y_%m_%d_%H_%M')
@@ -47,41 +50,45 @@ def init_db_path(config):
         logger.info(f"날짜별 폴더 생성: {ymd_path}")
 
     db_path =  ymd_path / f'fm_{ymd_time}.db'
+    return ymd_path, db_path
+
+# def init_db_path(db_path: Path | None = None) -> Path:
+#     """DB 파일 경로 초기화"""
     
-    if not db_path.exists():
-        conn = sqlite3.connect(db_path)
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS fund_mail (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,  
-                email_id TEXT ,  -- office365의 email_id
-                subject TEXT,
-                sender TEXT,
-                to_recipients TEXT,  -- 수신자 목록
-                cc_recipients TEXT,  -- 참조자 목록
-                email_time TEXT,
-                kst_time TEXT,
-                content TEXT
-            )
-        """)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS fund_mail_attach (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                parent_id INTEGER,
-                email_id TEXT,  -- fund_mail 테이블의 id
-                save_folder TEXT,
-                file_name TEXT
-            )
-        """)        
-        conn.commit()
-        conn.close()
-        logger.info(f"✅ DB 파일 생성: {db_path}")
-    else:
-        logger.info(f"✅ DB 파일 경로: {db_path}") 
-    return db_path
+#     if not db_path.exists():
+#         conn = sqlite3.connect(db_path)
+#         cur = conn.cursor()
+#         cur.execute("""
+#             CREATE TABLE IF NOT EXISTS fund_mail (
+#                 id INTEGER PRIMARY KEY AUTOINCREMENT,  
+#                 email_id TEXT ,  -- office365의 email_id
+#                 subject TEXT,
+#                 sender TEXT,
+#                 to_recipients TEXT,  -- 수신자 목록
+#                 cc_recipients TEXT,  -- 참조자 목록
+#                 email_time TEXT,
+#                 kst_time TEXT,
+#                 content TEXT
+#             )
+#         """)
+#         cur.execute("""
+#             CREATE TABLE IF NOT EXISTS fund_mail_attach (
+#                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+#                 parent_id INTEGER,
+#                 email_id TEXT,  -- fund_mail 테이블의 id
+#                 save_folder TEXT,
+#                 file_name TEXT
+#             )
+#         """)        
+#         conn.commit()
+#         conn.close()
+#         logger.info(f"✅ DB 파일 생성: {db_path}")
+#     else:
+#         logger.info(f"✅ DB 파일 경로: {db_path}") 
+#     return db_path
 
 
-def save_last_fetch_time(last_mail_time, config):
+def save_last_email_id_and_time(last_mail_time, last_email_id, config):
     """
     마지막 이메일 수집 시각을 LAST_TIME.json에 저장
     """
@@ -103,6 +110,7 @@ def save_last_fetch_time(last_mail_time, config):
         with last_time_file.open("r+", encoding="utf-8") as f:
             data = json.load(f)
             data["last_fetch_time"] = ts
+            data["last_email_id"] = last_email_id
             f.seek(0)
             json.dump(data, f, indent=4)
             f.truncate()
@@ -168,99 +176,6 @@ def utc_to_kst(utc_str: str, *, as_iso: bool = True) -> str:
     else:
         return dt_kst.strftime("%Y-%m-%d %H:%M:%S")
 
-def fetch_email_from_office365(config):
-    """
-    LAST_TIME.json 파일에서 마지막 이메일 수집 시각을 읽어오고,
-    없으면 그날의 00:00:00 시각을 반환합니다.
-    그 시각 이후의 메일을 모두 가져와서 db에 저장, attachments를 다운로드합니다.
-    """
-    MAIL_USER = config.email_id
-
-    token = get_graph_token(config)
-    if not token:
-        return
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json'
-    }
-    
-    # 특정 사용자의 이메일 가져오기
-    cursor = config.last_mail_fetch_time
-    cursor_str = cursor.astimezone(timezone.utc)          \
-                     .strftime('%Y-%m-%dT%H:%M:%SZ')  # → '2025-06-23T15:00:00Z'    
-    # 예: '2025-06-23T15:00:00Z'    
-    url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages'
-    params = {
-        # 오늘 00:00 이후 메일 전부
-        "$filter": f"receivedDateTime ge {cursor_str}",
-        # 페이지당 최대 1000건 (더 많으면 @odata.nextLink 로 자동 페이지 이동)
-        "$orderby": "receivedDateTime asc",               # ← 정렬 추가
-        "$top": 1000,
-        # 원하는 필드만 선택
-        "$select": "subject,from,receivedDateTime,hasAttachments,id,toRecipients,ccRecipients"
-    }
-    
-    try:
-        graph = requests.Session()
-        graph.headers.update(headers)  # 세션에 헤더 추가
-        response = graph.get(url, headers=headers, params=params)
-        # 현재 시각을 UTC로 변환
-        # ymd_time = datetime.now(timezone.utc).strftime('%Y-%m-%d_%H_%M_%S')
-        db_path = init_db_path(config)
-        if response.status_code == 200:
-            emails = response.json().get('value', [])
-            logger.info(f"✅ {len(emails)}개의 이메일을 가져왔습니다:")
-            last_mail_time = None
-            count = 0
-            for email in emails:
-                logger.info("--------------------------------------------------------")
-                email_id = email.get('id', 'ID 없음')
-                subject = email.get('subject', '제목 없음')
-                sender = email.get('from', {}).get('emailAddress', {}).get('address', '발신자 없음')
-                received_time = email.get('receivedDateTime', '날짜 없음')
-                to_recipients  = ', '.join(r['emailAddress']['address'] for r in email.get('toRecipients', [])) or '받는 사람 없음'
-                cc_recipients  = ', '.join(r['emailAddress']['address'] for r in email.get('ccRecipients', [])) or '참조 없음'
-
-                content = get_message_body(graph, MAIL_USER, email_id) or '내용 없음'                
-                kst_time = utc_to_kst(received_time, as_iso=True)  # KST로 변환
-                # DB에 저장
-                
-                try:
-                    conn = sqlite3.connect(db_path)
-                    cur = conn.cursor()
-                                    
-                    cur.execute("""
-                        INSERT OR IGNORE INTO fund_mail (email_id, subject, sender, to_recipients, cc_recipients, email_time, kst_time, content)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (email_id, subject, sender, to_recipients, cc_recipients, received_time, kst_time, content))   
-                    conn.commit()
-                    # insert된 id를 가져오기
-                    cur.execute("SELECT last_insert_rowid()")
-                    parent_id = cur.fetchone()[0]  # 마지막으로 삽입된 행의
-
-                    conn.close()
-                    count = count + 1
-                    logger.info(f"✅ {count} 이메일 DB에 저장: {subject} "
-                                 f" - 발신자: {sender}, 날짜(KST): {kst_time}")
-                except sqlite3.Error as e:
-                    logger.error(f"❌ DB 저장 오류: {e}")
-
-                # 첨부파일이 있는 경우 다운로드
-                if email.get('hasAttachments'):
-                    download_attachments(parent_id, MAIL_USER, email['id'], headers, db_path)
-                # logger.info("--------------------------------------------------------")
-
-                last_mail_time = email.get('receivedDateTime')
-                # 마지막 이메일 수집 시각을 저장
-            save_last_fetch_time(last_mail_time, config)
-            return db_path
-        else:
-            logger.error(f"❌ API 호출 실패: {response.status_code}")
-            logger.error(response.text)
-            
-    except Exception as e:
-        logger.error(f"❌ 오류: {e}")
-
 def is_logo_like(attachment: dict) -> bool:
     """본문 삽입 이미지(로고 등)인지 판단하는 유틸 함수"""
     if attachment.get("isInline"):
@@ -309,7 +224,123 @@ def if_exist_change_filename(filepath: str,
 
     return candidate
 
-def download_attachments(parent_id, MAIL_USER, email_id, headers, db_path):
+
+def fetch_email_from_office365(config):
+    """
+    LAST_TIME.json 파일에서 마지막 이메일 수집 시각을 읽어오고,
+    없으면 그날의 00:00:00 시각을 반환합니다.
+    그 시각 이후의 메일을 모두 가져와서 db에 저장, attachments를 다운로드합니다.
+    """
+    MAIL_USER = config.email_id
+
+    token = get_graph_token(config)
+    if not token:
+        return
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    
+    # LAST_TIME.json에서 최종 email_id를 가져온다.
+    last_email_id = config.last_email_id
+    fetch_count = 1000
+    is_first_fetch = False
+
+    if not last_email_id:
+        fetch_count = 1
+        is_first_fetch = True
+        logger.warning("마지막 이메일 ID가 없으므로, 1건만 가져옵니다.")
+    
+    # cursor = config.last_mail_fetch_time
+    # cursor_str = cursor.astimezone(timezone.utc)          \
+    #                  .strftime('%Y-%m-%dT%H:%M:%SZ')  # → '2025-06-23T15:00:00Z'    
+    # 예: '2025-06-23T15:00:00Z'    
+    url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages'
+    params = {
+        # 오늘 00:00 이후 메일 전부
+        # "$filter": f"receivedDateTime ge {cursor_str}",
+        # 페이지당 최대 1000건 (더 많으면 @odata.nextLink 로 자동 페이지 이동)
+        "$orderby": "receivedDateTime desc",               # ← 정렬 추가
+        "$top": {fetch_count},
+        # 원하는 필드만 선택
+        "$select": "subject,from,receivedDateTime,hasAttachments,id,toRecipients,ccRecipients"
+    }
+    
+    try:
+        graph = requests.Session()
+        graph.headers.update(headers)  # 세션에 헤더 추가
+        response = graph.get(url, headers=headers, params=params)
+        # 현재 시각을 UTC로 변환
+        db_path = None
+        ymd_path = None
+        if not is_first_fetch:
+            ymd_path, db_path = get_ymd_path_and_dbpath(config)  # ymd_path, db_path 생성
+        email_data_list = []
+        if response.status_code == 200:
+            emails = response.json().get('value', [])
+            logger.info(f"✅ {len(emails)}개의 이메일을 가져왔습니다:")
+            last_mail_time = None
+            for email in emails:
+                logger.info("--------------------------------------------------------")
+                email_id = email.get('id', 'ID 없음')
+                subject = email.get('subject', '제목 없음')
+                sender = email.get('from', {}).get('emailAddress', {}).get('address', '발신자 없음')
+                received_time = email.get('receivedDateTime', '날짜 없음')
+                to_recipients  = ', '.join(r['emailAddress']['address'] for r in email.get('toRecipients', [])) or '받는 사람 없음'
+                cc_recipients  = ', '.join(r['emailAddress']['address'] for r in email.get('ccRecipients', [])) or '참조 없음'
+
+                content = get_message_body(graph, MAIL_USER, email_id) or '내용 없음'                
+                kst_time = utc_to_kst(received_time, as_iso=True)  # KST로 변환
+
+                # last_mail_time은 가장 최근 시각으로 설정
+                if last_mail_time is None or received_time > last_mail_time:
+                    last_mail_time = received_time
+
+                if is_first_fetch:
+                    last_email_id = email_id
+                    logger.info(f"첫 번째 이메일 수집: {email_id} - {subject}")
+                    break
+                if last_email_id == email_id:
+                    logger.info(f"마지막 이메일 ID와 일치: {email_id} - {subject}")
+                    break    
+                # 첨부파일이 있는 경우 다운로드
+                if email.get('hasAttachments'):
+                    attach_files = download_attachments( MAIL_USER, email['id'], headers, ymd_path)
+                # 데이터 메모리에 저장
+                email_data_list.append({
+                    'email_id': email_id,
+                    'subject': subject,
+                    'sender': sender,
+                    'to_recipients': to_recipients,
+                    'cc_recipients': cc_recipients,
+                    'email_time': received_time,  # UTC 시각
+                    'kst_time': kst_time,          # KST 시각
+                    'content': content,
+                    'attach_files': attach_files if not is_first_fetch else []
+                })
+                # 마지막 이메일 수집 시각을 저장
+            if email_data_list:
+                # 마지막 이메일 수집 시각과 ID를 저장, DB생성, DB에 저장
+                last_email_id = email_data_list[0]['email_id']
+                create_db_tables(db_path)  # DB 초기화
+                save_last_email_id_and_time(last_mail_time, last_email_id, config)
+                db_path = save_email_data_to_db(email_data_list, db_path)
+            else:
+                logger.warning("수집된 이메일이 없습니다.")
+            return db_path
+        else:
+            logger.error(f"❌ API 호출 실패: {response.status_code}")
+            logger.error(response.text)
+            raise EmailFetchError(f"❌ API 호출 실패: {response.status_code} - {response.text}")
+            
+    except Exception as e:
+        logger.error(f"❌ 오류: {e}")
+        raise EmailFetchError(f"❌ 이메일 수집시 알려지지 않은 오류: {e}")
+
+
+
+
+def download_attachments(MAIL_USER, email_id, headers, ymd_path):
     """첨부파일 다운로드"""
     url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages/{email_id}/attachments'
     
@@ -319,6 +350,13 @@ def download_attachments(parent_id, MAIL_USER, email_id, headers, db_path):
         if response.status_code == 200:
             attachments = response.json().get('value', [])
             attach_count = 0
+            attach_files = []
+            # 첨부파일 저장 폴더 생성
+            attach_path = ymd_path / 'attach'
+            if not attach_path.exists():
+                attach_path.mkdir(parents=True, exist_ok=True)
+                logger.info(f"✅ 첨부파일 폴더 생성: {attach_path}")
+
             for attachment in attachments:
                 if attachment.get("@odata.type") != "#microsoft.graph.fileAttachment":
                     continue                        # 참조·메시지 첨부 등
@@ -333,32 +371,21 @@ def download_attachments(parent_id, MAIL_USER, email_id, headers, db_path):
                 if content:
                     import base64
                     file_data = base64.b64decode(content)
-                    attach_path = db_path.parent / 'attach'
-                    if not attach_path.exists():
-                        attach_path.mkdir(parents=True, exist_ok=True)
-                        logger.info(f"✅ 첨부파일 폴더 생성: {attach_path}")
                     filepath = os.path.join(attach_path, filename)
                     filepath = if_exist_change_filename(filepath)  # 중복 파일명 처리
                     with open(filepath, 'wb') as f:
                         f.write(file_data)
-                    # logger.info(f"✅ 첨부파일 물리적 저장: {filename}")
-                    # DB에 첨부파일 정보 저장
-                    try:
-                        conn = sqlite3.connect(db_path)
-                        cur = conn.cursor()
-                        cur.execute("""
-                            INSERT INTO fund_mail_attach (parent_id, email_id, save_folder, file_name)
-                            VALUES (?, ?, ?, ?)
-                        """, (parent_id, email_id, str(attach_path), filename))  # 현재 작업 디렉토리에 저장
-                        conn.commit()
-                        conn.close()
-                        attach_count = attach_count + 1
-                        logger.info(f"✅ 첨부파일 {attach_count} DB 저장: {filename},  저장 폴더: {attach_path}")
-                    except sqlite3.Error as e:
-                        logger.error(f"❌ DB 첨부파일 저장 오류: {e}")
+                    attach_files.append({
+                        'parent_id': None,
+                        'email_id': email_id,
+                        'save_folder': str(attach_path),
+                        'file_name': os.path.basename(filepath)
+                    })
         else:
             logger.error(f"❌ 첨부파일 API 호출 실패: {response.status_code}")
             logger.error(response.text)
-                        
+            raise AttachFileFetchError(f"❌ 첨부파일 API 호출 실패: {response.status_code} - {response.text}")
+        return attach_files
     except Exception as e:
         logger.error(f"❌ 첨부파일 다운로드 오류: {e}")
+        raise  AttachFileFetchError(f"❌ 첨부파일 URL 호출 실패 오류: {e}")

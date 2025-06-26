@@ -76,6 +76,15 @@ file_name: 파일명
 5. LAST_TIME.txt에 마지막 메일의 time을 저장폴더명
 6. 5분후 last_time.txt의 시간을 읽어서 그 시각 이후의 메일을 가져온 후 3번부터 반복
 
+## 동작-Refactoring
+1. LAST_TIME.json 에서 마지막 email_id를 읽어온다.
+2. 만약 LAST_TIME.json이 존재하지 않는다면 가장 늦게 도착한 email 1개만 읽는다.
+3. 그리고 LAST_TIME.json에 email_id를 저장하고 5분대기
+4. 5분이 흘러서 1000개 를 시간역순으로 읽어서 저장해 두었던 email_id와 비교 만날때까지 읽는다.
+5. 모두 db동작은 transaction처리한다
+6. sftp로 올린다.
+7. LAST_TIME에 최종 시각을 저장한다.
+8. 5분 대기
 ## 배포
 1. window pc에 배포한다
 2. 설치문서 INSTALL.md 참조

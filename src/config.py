@@ -131,3 +131,18 @@ class Config:
         # 폴백: 오늘 00:00 KST → UTC
         midnight_local = datetime.now(KST).replace(hour=0, minute=0, second=0, microsecond=0)
         return midnight_local.astimezone(UTC)
+
+    @property
+    def last_email_id(self) -> str:
+        """마지막 이메일 ID를 반환.
+
+        `LAST_TIME.json` 의 `{"last_email_id": "ID"}` 값을 읽습니다.
+        파일이 없거나 파싱에 실패하면 빈 문자열을 반환합니다.
+        """
+        if self.last_time_file.exists():
+            try:
+                with self.last_time_file.open("r", encoding="utf-8") as fh:
+                    data: dict[str, Any] = json.load(fh)
+                return data.get("last_email_id", "")
+            except Exception:
+                pass
