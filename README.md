@@ -18,7 +18,6 @@
 3. sqlitedb의 파일명은 fm_yyyy_mm_dd_HHMM.db로 한다.
 4. 첨부파일은 지정된 폴더 .env에 기록된 attach_base_dir하위에 yyyy_mm_dd 밑에 넣는다. 
 5. sqlitedb와 다운로드된 파일을 모두 지정된 server로 sftp를 통해서 upload한다.
-중요기능
 6. 5분마다 위 동작이 이루어지며 lose된 메일은 절대로 없어야한다.
 
 ## 설계
@@ -77,15 +76,17 @@ CREATE TABLE fund_mail_attach (
 ```
 
 ## 동작-Refactoring
-1. LAST_TIME.json 에서 마지막 email_id를 읽어온다.
+1. LAST_TIME.json 에서 마지막 email_id,last_fetch_time를 읽어온다.
 2. 만약 LAST_TIME.json이 존재하지 않는다면 가장 늦게 도착한 email 1개만 읽는다.
-3. 그리고 LAST_TIME.json에 email_id를 저장하고 5분대기
+3. 그리고 LAST_TIME.json에 email_id, last_fetch_time을 저장하고 5분대기
 4. 5분이 흘러서 1000개 를 시간역순으로 읽어서 저장해 두었던 email_id와 비교 만날때까지 읽는다.
 5. 모두 db동작은 transaction처리한다
 6. sftp로 올린다.
 7. LAST_TIME에 최종 시각을 저장한다.
 8. 5분 대기
-
+9. 어떠한 이유로 실패하든지 LAST_TIME.json을 유지한다.
+10. 실패하면 프로그램은 종료한다
+   
 ## 배포
 1. window pc에 배포한다
 2. 설치문서 INSTALL.md 참조
