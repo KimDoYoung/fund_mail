@@ -2,11 +2,11 @@
 cd /d "%~dp0"
 
 set VENV_PATH=.venv
-set PYTHON_SCRIPT=service_wrapper.py
+set PYTHON_SCRIPT=src/service_wrapper.py
 set SERVICE_NAME=FundMailFetchService
 
 echo ====================================
-echo Email Fetch Service Management
+echo Fund Email Fetch Service Management
 echo ====================================
 
 :MENU

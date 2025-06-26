@@ -46,12 +46,12 @@ python service_wrapper.py install
 
 ## 3. 서비스 시작
 ```cmd
-net start EmailFetchService
+net start FundEmailFetchService
 ```
 
 ## 4. 서비스 상태 확인
 ```cmd
-sc query EmailFetchService
+sc query FundEmailFetchService
 ```
 
 ## 5. 로그 확인
@@ -60,7 +60,7 @@ sc query EmailFetchService
 
 ## 6. 서비스 제거
 ```cmd
-net stop EmailFetchService
+net stop FundEmailFetchService
 python service_wrapper.py remove
 ```
 

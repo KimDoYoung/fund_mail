@@ -10,7 +10,7 @@ from pathlib import Path
 # 실제 작업 스크립트 import
 from main  import TaskScheduler
 
-class EmailFetchService(win32serviceutil.ServiceFramework):
+class FundEmailFetchService(win32serviceutil.ServiceFramework):
     _svc_name_ = "EmailFetchService"
     _svc_display_name_ = "Fund Email Fetch Service"
     _svc_description_ = "5분마다 이메일을 수집하여 DB에 저장하고 SFTP에 업로드하는 서비스"
@@ -73,7 +73,7 @@ class EmailFetchService(win32serviceutil.ServiceFramework):
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         servicemanager.Initialize()
-        servicemanager.PrepareToHostSingle(EmailFetchService)
+        servicemanager.PrepareToHostSingle(FundEmailFetchService)
         servicemanager.StartServiceCtrlDispatcher()
     else:
-        win32serviceutil.HandleCommandLine(EmailFetchService)
+        win32serviceutil.HandleCommandLine(FundEmailFetchService)
