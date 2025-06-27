@@ -22,7 +22,7 @@ find "$DIST_DIR" -type d -name "__pycache__" -exec rm -rf {} +
 
 # 4) .env 복사
 cp .env "$DIST_DIR"/
-
+cp manage_fund_mail.bat "$DIST_DIR"/
 # 5) uv sync 관련 파일 복사
 for f in "${UV_FILES[@]}"; do
   [[ -f "$f" ]] && cp "$f" "$DIST_DIR"/

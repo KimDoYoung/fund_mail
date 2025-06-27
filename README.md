@@ -16,13 +16,27 @@
 
 ## 빌드
 
-
 1. make_exe.sh
-   1. fund_mail.exe를 만든다. 
+   1. fund_mail_once.exe를 만든다. 
    2. 배포pc에서 tashschd에 5분마다(또는 정해진 시간)마다 동작하도록 하면 된다. 
+   3. .env와 만들어진 fund_mail_once.exe를 c:\fund_mail에 가져다 놓고.
+   4. tashschd에서 매시간 동작하게 설정
    
 2. make_svc.sh
-   1. 
+   0. 관리자권한으로 cmd를 실행한다
+   1. 전제조건 uv와 python이 설치되어 있다고 가정
+   ```bash
+      which python
+      uv python list
+      uv python install 3.11
+   ``` 
+   2. c:\fund_mail에 dist/의 모든 파일 copy
+   3. uv venv
+   4. source .venv/Scripts/activate (cmd에서는 .venv/Scripts/activate)
+   5. uv sync (cmd : c:\Users\PC\.local\bin\uv sync)
+   6. python src/service_wrapper.py install/start/stop/remove/debug
+   
+
 ## 기능
 1. microsoft의 office365 mail을 imap으로 가져온다.
 2. sqlitedb에 보낸사람, 보낸시간, 제목, 내용을 db테이.블 fund_.mail에 넣는다. 
