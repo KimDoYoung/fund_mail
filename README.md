@@ -3,7 +3,9 @@
 ## 목표
 1. office365 메일을 사용하는데, 오늘 새로이 수신한 메일을 5분단위로 가져와서 DB에 저장한다.
 2. office365 메일을 가져오기위해서 IMAP 프로토콜을 사용해야하는데. OAuth2로 인증을 받아야한다.
-
+3. 5분단위 가져온 메일 내용으로 sqlite를 생성해서 넣는다.
+4. 첨부파일을 다운로드한다.
+5. 만들어진 sqlite db와 첨부파일을 sftp를 통해서 서버에 전송한다.
 
 ## 기술스택
 1. python
@@ -12,6 +14,15 @@
 4. sftp
 5. dotenv
 
+## 빌드
+
+
+1. make_exe.sh
+   1. fund_mail.exe를 만든다. 
+   2. 배포pc에서 tashschd에 5분마다(또는 정해진 시간)마다 동작하도록 하면 된다. 
+   
+2. make_svc.sh
+   1. 
 ## 기능
 1. microsoft의 office365 mail을 imap으로 가져온다.
 2. sqlitedb에 보낸사람, 보낸시간, 제목, 내용을 db테이.블 fund_.mail에 넣는다. 

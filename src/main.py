@@ -76,7 +76,7 @@ def fetch_fund_mail():
             time.sleep(1)      # Ctrl-C 처리용 루프
     except KeyboardInterrupt:
         scheduler.stop()
-        logger.info("⏹️  사용자가 스케줄러를 중단했습니다.")
+        logger.info("🔴 사용자가 스케줄러를 중단했습니다.")
     except Exception:
         # _run_task 에서 올라온 예외 – 이미 로그 찍었으므로 종료만
         scheduler.stop()
@@ -85,11 +85,3 @@ def fetch_fund_mail():
 # 사용 예시
 if __name__ == "__main__":
     fetch_fund_mail()
-    # scheduler = TaskScheduler()
-    # scheduler.start()
-    # try:
-    #     while True:
-    #         time.sleep(1)
-    # except KeyboardInterrupt:
-    #     scheduler.stop()
-    #     logger.info("스케줄러가 중단되었습니다.")

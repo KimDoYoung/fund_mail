@@ -11,6 +11,18 @@
         "env": {
           "PYTHONPATH": "${workspaceFolder}/src"
         }
-      }
+      },
+      {
+        "type": "debugpy",
+        "name": "EXE",
+        "request": "launch",
+        "justMyCode": true,
+        // "program": "${file}",
+        "program": "${workspaceFolder}/src/main_once.py",
+        "console": "integratedTerminal",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src"
+        }
+      }      
     ]
   }
