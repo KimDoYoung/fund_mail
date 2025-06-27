@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ----- 설정 -----
 ENTRYPOINT="src/main_once.py"          # PyInstaller 진입점
-APP_NAME="fund_mail"              # exe 이름
+APP_NAME="fund_mail_once"              # exe 이름
 DIST_DIR="dist"                   # 산출물 폴더
 VENV_DIR=".venv"                  # (선택) 가상환경 사용 시
 # -----------------
