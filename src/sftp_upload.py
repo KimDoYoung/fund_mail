@@ -1,5 +1,6 @@
 import os
 import errno
+import re
 from datetime import datetime, timezone
 import paramiko
 import sqlite3
@@ -9,6 +10,21 @@ from logger import get_logger
 
 
 logger = get_logger()
+
+
+def extract_date_from_db_path(db_path):
+    """
+    DB 파일 경로에서 날짜 부분을 추출
+    예: '/home/kdy987/fund_mail/2025-06-30/fm_2025_06_23_14_29.db' -> '2025_06_23'
+    """
+    filename = os.path.basename(db_path)
+    # fm_YYYY_MM_DD_HH_MM.db 패턴에서 날짜 부분 추출
+    pattern = r'fm_(\d{4}_\d{2}_\d{2})_\d{2}_\d{2}\.db'
+    match = re.search(pattern, filename)
+    if match:
+        return match.group(1)
+    else:
+        raise ValueError(f"DB 파일명에서 날짜를 추출할 수 없습니다: {filename}")
 
 
 def remote_exists(sftp: paramiko.SFTPClient, path: str) -> bool:
@@ -64,7 +80,8 @@ def upload_to_sftp(config, db_path):
         sftp = paramiko.SFTPClient.from_transport(transport)
 
         # === 1) DB 파일 업로드 ===
-        ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        # ymd = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        ymd = extract_date_from_db_path(db_path)  # DB 파일 경로에서 날짜 추출
         remote_dir = f"{config.sftp_base_dir}/{ymd}"
         mkdir_p(sftp, remote_dir)  # 디렉터리 생성 (필요 시)
 
