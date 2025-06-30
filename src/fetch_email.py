@@ -38,12 +38,15 @@ def get_graph_token(config):
         logger.error("토큰 발급 실패:", result.get('error_description'))
         return None
 
-def get_ymd_path_and_dbpath(config):
+def get_ymd_path_and_dbpath(config, one_day: str = None):
     ''' 현재 날짜를 'YYYY_MM_DD' 형식으로 반환 폴더 경로 및 DB명 생성'''
     data_dir = config.data_dir
-    # ymd_time = datetime.now(timezone.utc).strftime('%Y_%m_%d_%H_%M')
-    ymd_time = datetime.now().strftime('%Y_%m_%d_%H_%M')
-    ymd_path = data_dir / ymd_time[:10]  # '2025-06-23' 형태
+    if one_day:
+        ymd_time = one_day.replace("-","_") + datetime.now().strftime('_%H_%M')
+        ymd_path = data_dir / ymd_time[:10]  # '2025-06-23' 형태
+    else:    
+        ymd_time = datetime.now().strftime('%Y_%m_%d_%H_%M')
+        ymd_path = data_dir / ymd_time[:10]  # '2025-06-23' 형태
     
     if not ymd_path.exists():
         ymd_path.mkdir(parents=True, exist_ok=True)
@@ -51,42 +54,6 @@ def get_ymd_path_and_dbpath(config):
 
     db_path =  ymd_path / f'fm_{ymd_time}.db'
     return ymd_path, db_path
-
-# def init_db_path(db_path: Path | None = None) -> Path:
-#     """DB 파일 경로 초기화"""
-    
-#     if not db_path.exists():
-#         conn = sqlite3.connect(db_path)
-#         cur = conn.cursor()
-#         cur.execute("""
-#             CREATE TABLE IF NOT EXISTS fund_mail (
-#                 id INTEGER PRIMARY KEY AUTOINCREMENT,  
-#                 email_id TEXT ,  -- office365의 email_id
-#                 subject TEXT,
-#                 sender TEXT,
-#                 to_recipients TEXT,  -- 수신자 목록
-#                 cc_recipients TEXT,  -- 참조자 목록
-#                 email_time TEXT,
-#                 kst_time TEXT,
-#                 content TEXT
-#             )
-#         """)
-#         cur.execute("""
-#             CREATE TABLE IF NOT EXISTS fund_mail_attach (
-#                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-#                 parent_id INTEGER,
-#                 email_id TEXT,  -- fund_mail 테이블의 id
-#                 save_folder TEXT,
-#                 file_name TEXT
-#             )
-#         """)        
-#         conn.commit()
-#         conn.close()
-#         logger.info(f"✅ DB 파일 생성: {db_path}")
-#     else:
-#         logger.info(f"✅ DB 파일 경로: {db_path}") 
-#     return db_path
-
 
 def save_last_email_id_and_time(last_mail_time, last_email_id, title, config):
     """
@@ -294,6 +261,7 @@ def fetch_email_from_office365(config, one_day:str = None):
     if one_day: # 하루동안의 메일
         logger.info(f"하루동안의 메일을 가져옵니다: {one_day}")
         params = build_params_for_one_day(one_day)
+        last_email_id = None  # 하루 단위로 가져오면 마지막 ID는 의미 없음
     elif not last_email_id:
         is_first_fetch = True
         logger.warning("⚠️마지막 이메일 ID가 없으므로(LAST_TIME.json 없는지 체크), 1건만 가져옵니다.")
@@ -333,7 +301,7 @@ def fetch_email_from_office365(config, one_day:str = None):
         db_path = None
         ymd_path = None
         if not is_first_fetch:
-            ymd_path, db_path = get_ymd_path_and_dbpath(config)  # ymd_path, db_path 생성
+            ymd_path, db_path = get_ymd_path_and_dbpath(config, one_day)  # ymd_path, db_path 생성
         email_data_list = []
         if response.status_code == 200:
             emails = response.json().get('value', [])

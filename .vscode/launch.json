@@ -23,6 +23,23 @@
         "env": {
           "PYTHONPATH": "${workspaceFolder}/src"
         }
+      },
+      {
+        "type": "debugpy",
+        "name": "ONE-DAY",
+        "request": "launch",
+        "justMyCode": true,
+        // "program": "${file}",
+        "program": "${workspaceFolder}/src/main_one_day.py",
+        "console": "integratedTerminal",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src"
+        },
+        "args": [
+          "--date",
+          "2025-06-24"
+        ]
       }      
+
     ]
   }

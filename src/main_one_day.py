@@ -26,9 +26,11 @@ except ModuleNotFoundError:  # pragma: no cover (≤3.8 fallback)
 # ----------------------------------------------------------------------------
 # fund_mail internals (import paths may differ in your project layout)
 # ----------------------------------------------------------------------------
-from config import load_config
+from config import Config
 from fetch_email import fetch_email_from_office365
+from sftp_upload import upload_to_sftp  # noqa: E402
 
+           # 기본 .env 로드
 logger = get_logger()
 # ---------------------------------------------------------------------------
 # CLI helpers
@@ -65,15 +67,19 @@ def main() -> None:
         date_str = args.date
     else:
         date_str = datetime.now(KST).strftime("%Y-%m-%d")
-
-    logger.info(f"[fund_mail] Fetching e‑mails for {date_str} (KST)…")
+    logger.info(f"=" * 59)
+    logger.info(f"모든 메일 가져오기: {date_str} (KST)")
+    logger.info(f"=" * 59)
 
     # 2️⃣ Load project configuration (credentials, paths, etc.)
-    cfg = load_config()
+    cfg = Config.load() 
+    db_path = fetch_email_from_office365(cfg, one_day=date_str)
+    if db_path:
+        upload_to_sftp(cfg, db_path)    
 
-    db_path = fetch_email_from_office365(cfg, date=date_str)
-
+    logger.info(f"=" * 59)
     logger.info(f"[fund_mail] Saved {date_str} e‑mails to → {db_path}")
+    logger.info(f"=" * 59)
 
 
 if __name__ == "__main__":  # pragma: no cover
