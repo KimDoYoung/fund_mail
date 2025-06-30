@@ -35,7 +35,14 @@
    4. source .venv/Scripts/activate (cmd에서는 .venv/Scripts/activate)
    5. uv sync (cmd : c:\Users\PC\.local\bin\uv sync)
    6. python src/service_wrapper.py install/start/stop/remove/debug
-   
+
+3. make_exe_one_day.sh
+   1. fund_mail_one_day.exe를 생성한다.
+   ```bash
+      fund_mail_one_day --date 2025-06-30
+   ```
+   2. 하루치를 모두 받음. 
+   3. 인자로 지정한 날짜를 기준으로 폴더를 생성하고 upload 폴더를 만듬.
 
 ## 기능
 1. microsoft의 office365 mail을 imap으로 가져온다.
