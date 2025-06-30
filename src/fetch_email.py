@@ -226,7 +226,52 @@ def if_exist_change_filename(filepath: str,
     return candidate
 
 
-def fetch_email_from_office365(config):
+
+def utc_day_range(date_str: str) -> tuple[str, str]:
+    """
+    Parameters
+    ----------
+    date_str : str
+        날짜 문자열. 반드시 **'YYYY-MM-DD'** 형식이어야 하며,
+        한국 표준시(KST, UTC+09:00)의 그날 0시~24시 범위를 의미한다.
+
+    Returns
+    -------
+    tuple[str, str]
+        (UTC 0시 ISO8601, 다음날 UTC 0시 ISO8601)
+        → Microsoft Graph $filter 에 바로 사용할 수 있는 `'Z'` 접미사 ISO-8601.
+    """
+    # 1) 문자열 → KST 자정으로 변환
+    try:
+        local_midnight = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=KST)
+    except ValueError as e:
+        raise ValueError("date_str must be in 'YYYY-MM-DD' format") from e
+
+    # 2) KST → UTC
+    start_utc = local_midnight.astimezone(timezone.utc)
+    end_utc   = start_utc + timedelta(days=1)
+
+    # 3) 'Z' 접미사 ISO 8601
+    to_iso_z = lambda dt: dt.isoformat().replace("+00:00", "Z")
+    return to_iso_z(start_utc), to_iso_z(end_utc)
+
+def build_params_for_one_day(target_date: str, top: int = 1000) -> dict:
+    start_iso, end_iso = utc_day_range(target_date)
+
+    filter_expr = (
+        f"receivedDateTime ge {start_iso} "
+        f"and receivedDateTime lt {end_iso}"
+    )
+
+    return {
+        "$filter":  filter_expr,
+        "$orderby": "receivedDateTime desc",
+        "$top":     top,
+        "$select": ("subject,from,receivedDateTime,hasAttachments,"
+                    "id,toRecipients,ccRecipients"),
+    }	
+
+def fetch_email_from_office365(config, one_day:str = None):
     """
     LAST_TIME.json 파일에서 마지막 이메일 수집 시각을 읽어오고,
     없으면 그날의 00:00:00 시각을 반환합니다.
@@ -246,8 +291,10 @@ def fetch_email_from_office365(config):
     # LAST_TIME.json에서 최종 email_id를 가져온다.
     last_email_id = config.last_email_id
     is_first_fetch = False
-
-    if not last_email_id:
+    if one_day: # 하루동안의 메일
+        logger.info(f"하루동안의 메일을 가져옵니다: {one_day}")
+        params = build_params_for_one_day(one_day)
+    elif not last_email_id:
         is_first_fetch = True
         logger.warning("⚠️마지막 이메일 ID가 없으므로(LAST_TIME.json 없는지 체크), 1건만 가져옵니다.")
         params = {
