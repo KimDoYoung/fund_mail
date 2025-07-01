@@ -314,8 +314,8 @@ def fetch_email_from_office365(config, one_day:str = None):
                 subject = email.get('subject', '제목 없음')
                 sender = email.get('from', {}).get('emailAddress', {}).get('address', '발신자 없음')
                 received_time = email.get('receivedDateTime', '날짜 없음')
-                to_recipients  = ', '.join(r['emailAddress']['address'] for r in email.get('toRecipients', [])) or '받는 사람 없음'
-                cc_recipients  = ', '.join(r['emailAddress']['address'] for r in email.get('ccRecipients', [])) or '참조 없음'
+                to_recipients  = ', '.join(r.get('emailAddress', {}).get('address') for r in email.get('toRecipients', []) if r.get('emailAddress', {}).get('address')) or '받는 사람 없음'
+                cc_recipients  = ', '.join(r.get('emailAddress', {}).get('address') for r in email.get('ccRecipients', []) if r.get('emailAddress', {}).get('address')) or '참조 없음'
 
                 content = get_message_body(graph, MAIL_USER, email_id) or '내용 없음'                
                 kst_time = utc_to_kst(received_time, as_iso=True)  # KST로 변환
