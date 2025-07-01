@@ -6,7 +6,8 @@
         "request": "launch",
         "justMyCode": true,
         // "program": "${file}",
-        "program": "${workspaceFolder}/src/main.py",
+        // "program": "${workspaceFolder}/src/main.py",
+        "program": "${workspaceFolder}/src/find_first_mail.py",
         "console": "integratedTerminal",
         "env": {
           "PYTHONPATH": "${workspaceFolder}/src"
