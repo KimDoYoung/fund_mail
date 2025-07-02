@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import Optional
 
 # ─────────────────────────────── 설정 상수 ────────────────────────────────
-_MAX_BYTES: int = 5 * 1024 * 1024   # 5 MB
-_BACKUP_COUNT: int = 3
+_MAX_BYTES: int = 10 * 1024 * 1024   # 5 MB
+_BACKUP_COUNT: int = 10
 
 # ────────────────────────────── 내부 헬퍼 ─────────────────────────────────
 

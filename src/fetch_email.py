@@ -12,6 +12,7 @@ from exceptions import AttachFileFetchError, TokenError
 from exceptions import EmailFetchError
 from logger import get_logger
 from db_actions import create_db_tables, save_email_data_to_db
+from utils import truncate_filepath  
 
 logger = get_logger()
 
@@ -314,8 +315,8 @@ def fetch_email_from_office365(config, one_day:str = None):
                 subject = email.get('subject', '제목 없음')
                 sender = email.get('from', {}).get('emailAddress', {}).get('address', '발신자 없음')
                 received_time = email.get('receivedDateTime', '날짜 없음')
-                to_recipients  = ', '.join(r['emailAddress']['address'] for r in email.get('toRecipients', [])) or '받는 사람 없음'
-                cc_recipients  = ', '.join(r['emailAddress']['address'] for r in email.get('ccRecipients', [])) or '참조 없음'
+                to_recipients  = ', '.join(r.get('emailAddress', {}).get('address') for r in email.get('toRecipients', []) if r.get('emailAddress', {}).get('address')) or '받는 사람 없음'
+                cc_recipients  = ', '.join(r.get('emailAddress', {}).get('address') for r in email.get('ccRecipients', []) if r.get('emailAddress', {}).get('address')) or '참조 없음'
 
                 content = get_message_body(graph, MAIL_USER, email_id) or '내용 없음'                
                 kst_time = utc_to_kst(received_time, as_iso=True)  # KST로 변환
@@ -373,8 +374,6 @@ def fetch_email_from_office365(config, one_day:str = None):
         raise EmailFetchError(f"❌ 이메일 수집시 알려지지 않은 오류: {e}")
 
 
-
-
 def download_attachments(MAIL_USER, email_id, headers, ymd_path):
     """첨부파일 다운로드"""
     url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages/{email_id}/attachments'
@@ -401,6 +400,7 @@ def download_attachments(MAIL_USER, email_id, headers, ymd_path):
                                 attachment.get("name"), attachment.get("contentType"))
                     continue                
                 filename = attachment.get('name')
+                # filename = truncate_filename(filename, max_bytes=255)  # 파일명 길이 제한
                 content = attachment.get('contentBytes')
                 
                 if content:
@@ -408,6 +408,7 @@ def download_attachments(MAIL_USER, email_id, headers, ymd_path):
                     file_data = base64.b64decode(content)
                     filepath = os.path.join(attach_path, filename)
                     filepath = if_exist_change_filename(filepath)  # 중복 파일명 처리
+                    filepath = truncate_filepath(filepath)  
                     with open(filepath, 'wb') as f:
                         f.write(file_data)
                     attach_files.append({

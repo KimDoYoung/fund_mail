@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['src\\main_one_day.py'],
+    ['src/main_one_day.py'],
     pathex=[],
     binaries=[],
     datas=[],
