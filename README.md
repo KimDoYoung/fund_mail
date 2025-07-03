@@ -157,6 +157,19 @@ CREATE TABLE fund_mail_attach (
 8. [ms 공식 매뉴얼](https://learn.microsoft.com/en-us/graph/api/user-list-messages?view=graph-rest-1.0&tabs=http) 참조
    
 
+## 유틸리티들
+
+- src폴더에는 유틸리티성 py도 있음
+### pst_extract.py
+
+- 과거 백업받은 pst를 읽어서 sqlitedb에 넣는다.
+- 기능 
+   - 인자로 기술된 pst파일을 읽어서 target folder 하위에 pst파일명과 같은 sqlitedb를 생성하고 내용을 옮긴다.
+   - 또한 target folder 하위에 attach폴더를 만들어서 첨부파일을 저장한다.
+   - sqlitedb는 2개의 테이블이 있다 (db_actions.py를 사용)
+   - pst파일은 37G 정도임.
+
+
 ## 참고
 
 1. [마이크로소프트 인증사이트](https://myaccount.microsoft.com/)
