@@ -78,10 +78,14 @@ SFTP_PW=
 ```
 
 ### from / sender
+
 | 구분         | 언제 쓰나                                                             |
 | ---------- | ----------------------------------------------------------------- |
 | **from**   | 일반적으로 보이는 “보낸 사람”. 공유 사서함이나 위임 계정이면 mailbox 소유자 이름이 들어갈 수 있음      |
 | **sender** | 실제로 SMTP 전송을 수행한 계정. “홍길동(대신 보냄)” 같은 경우 정확한 발신자 실명을 얻으려면 이 필드를 사용 |
+
+> TIP from은 “보이는” 발신자, sender는 실제 SMTP 발송 계정입니다.
+> 위임 / Send As / Send On Behalf 권한이 걸린 메일에서는 두 값이 달라질 수 있으니, 정확한 “누가 보냈는지”를 알고 싶다면 sender를 활용하세요.
 
 
 ### 스케줄
@@ -95,7 +99,10 @@ CREATE TABLE fund_mail (
             id INTEGER PRIMARY KEY AUTOINCREMENT,  
             email_id TEXT ,  -- office365의 email_id
             subject TEXT,
-            sender TEXT,
+            sender_address TEXT,
+            sender_name TEXT,  
+            from_address TEXT,  
+            from_name TEXT,  
             to_recipients TEXT,  -- 수신자 목록
             cc_recipients TEXT,  -- 참조자 목록
             email_time TEXT,
