@@ -21,7 +21,10 @@ def create_db_tables(db_path):
             id INTEGER PRIMARY KEY AUTOINCREMENT,  
             email_id TEXT ,  -- office365의 email_id
             subject TEXT,
-            sender TEXT,
+            sender_address TEXT,
+            sender_name TEXT,  
+            from_address TEXT,  
+            from_name TEXT,  
             to_recipients TEXT,  -- 수신자 목록
             cc_recipients TEXT,  -- 참조자 목록
             email_time TEXT,
@@ -61,14 +64,17 @@ def save_email_data_to_db(email_data_list, db_path):
                 # --- 1) 메일 INSERT ---------------------------------
                 cur.execute("""
                     INSERT INTO fund_mail
-                          (email_id, subject, sender,
+                          (email_id, subject, sender_address, sender_name, from_address, from_name,
                            to_recipients, cc_recipients,
                            email_time, kst_time, content)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     email["email_id"],
                     email["subject"],
-                    email["sender"],
+                    email["sender_address"],
+                    email["sender_name"],
+                    email["from_address"],
+                    email["from_name"],
                     email["to_recipients"],
                     email["cc_recipients"],
                     email["email_time"],

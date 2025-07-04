@@ -235,7 +235,7 @@ def build_params_for_one_day(target_date: str, top: int = 1000) -> dict:
         "$filter":  filter_expr,
         "$orderby": "receivedDateTime desc",
         "$top":     top,
-        "$select": ("subject,from,receivedDateTime,hasAttachments,"
+        "$select": ("subject,from,sender,receivedDateTime,hasAttachments,"
                     "id,toRecipients,ccRecipients"),
     }	
 
@@ -270,7 +270,7 @@ def fetch_email_from_office365(config, one_day:str = None):
             "$orderby": "receivedDateTime desc",                    # 최신부터
             "$top": 1,                                             # 1개만
             "$select": (
-                "subject,from,receivedDateTime,hasAttachments,id,"
+                "subject,from,sender,receivedDateTime,hasAttachments,id,"
                 "toRecipients,ccRecipients"
             )
         }    
@@ -285,7 +285,7 @@ def fetch_email_from_office365(config, one_day:str = None):
             "$orderby": "receivedDateTime desc",               # ← 정렬 추가
             "$top": 1000,
             # 원하는 필드만 선택
-            "$select": "subject,from,receivedDateTime,hasAttachments,id,toRecipients,ccRecipients"
+            "$select": "subject,from,sender, receivedDateTime,hasAttachments,id,toRecipients,ccRecipients"
         }
     
     # cursor = config.last_mail_fetch_time
@@ -313,7 +313,10 @@ def fetch_email_from_office365(config, one_day:str = None):
             for email in emails:
                 email_id = email.get('id', 'ID 없음')
                 subject = email.get('subject', '제목 없음')
-                sender = email.get('from', {}).get('emailAddress', {}).get('address', '발신자 없음')
+                from_address = email.get('from', {}).get('emailAddress', {}).get('address', '')
+                from_name = email.get('from', {}).get('emailAddress', {}).get('name', '')
+                sender_address = email.get('sender', {}).get('emailAddress', {}).get('address', '')
+                sender_name = email.get('sender', {}).get('emailAddress', {}).get('name', '')
                 received_time = email.get('receivedDateTime', '날짜 없음')
                 to_recipients  = ', '.join(r.get('emailAddress', {}).get('address') for r in email.get('toRecipients', []) if r.get('emailAddress', {}).get('address')) or '받는 사람 없음'
                 cc_recipients  = ', '.join(r.get('emailAddress', {}).get('address') for r in email.get('ccRecipients', []) if r.get('emailAddress', {}).get('address')) or '참조 없음'
@@ -340,7 +343,10 @@ def fetch_email_from_office365(config, one_day:str = None):
                 email_data_list.append({
                     'email_id': email_id,
                     'subject': subject,
-                    'sender': sender,
+                    'sender_address': sender_address,
+                    'sender_name': sender_name,
+                    'from_address': from_address,
+                    'from_name': from_name,
                     'to_recipients': to_recipients,
                     'cc_recipients': cc_recipients,
                     'email_time': received_time,  # UTC 시각

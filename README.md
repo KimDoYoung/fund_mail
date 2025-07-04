@@ -77,6 +77,13 @@ SFTP_ID=
 SFTP_PW=
 ```
 
+### from / sender
+| 구분         | 언제 쓰나                                                             |
+| ---------- | ----------------------------------------------------------------- |
+| **from**   | 일반적으로 보이는 “보낸 사람”. 공유 사서함이나 위임 계정이면 mailbox 소유자 이름이 들어갈 수 있음      |
+| **sender** | 실제로 SMTP 전송을 수행한 계정. “홍길동(대신 보냄)” 같은 경우 정확한 발신자 실명을 얻으려면 이 필드를 사용 |
+
+
 ### 스케줄
 window의 tashschd또는 cron을 이용한다.
 
@@ -169,7 +176,37 @@ CREATE TABLE fund_mail_attach (
    - sqlitedb는 2개의 테이블이 있다 (db_actions.py를 사용)
    - pst파일은 37G 정도임.
 
+### 기본 지식
+- 리눅스에 pst-util 을 설치하면 readpst라는 실행파일이 생긴다. 이것으로 pst파일을 csv등으로 extract한후 db에 넣는방법도 있다.
+- 윈도우에서는 [XstReader](https://github.com/Dijji/XstReader)라는 것도 있는데. 별로 신뢰감이 없다.
+- 리눅스에서 libpff + 파이썬 바인딩을 이용해서 
+```bash
+# 1) libpff + 파이썬 바인딩
+sudo apt update
+sudo apt-get install -y libpff-dev python3-dev build-essential  # Debian/Ubuntu
+sudo apt install python3-pypff libpff-dev pff-tools
+uv add libpff-python
 
+```
+### chatgpt
+```
+가능 여부 — “된다, 단 스트리밍 방식으로!”
+37 GB PST → SQLite 는 기술적으로 문제없습니다.
+
+SQLite 는 수 TB 단위까지 지원하고, 단일 트랜잭션으로만 처리하지 않으면 메모리 사용량도 안정적입니다.
+
+PST 는 트리 구조이므로 메시지 단위로 순회하며 바로 DB 에 flush 하면 8 ~ 16 GB RAM 환경에서도 충분히 돌릴 수 있습니다.
+
+파이썬 쪽에서는 libpff(pypff) / libratom 가 대표 라이브러리입니다. 두 라이브러리 모두 내부적으로 동일한 C-코어(libpff)를 사용하므로 속도·메모리 특성은 비슷합니다.
+
+pypff : 가장 가볍고 예제가 많음 
+github.com
+
+libratom : “pst → SQLite” 를 자동으로 해 주는 CLI( ratom scan --write-bodies --db … )가 있지만, 기존 스키마(fund_mail 등)과 다르므로 여기서는 pypff로 직접 파싱하는 스크립트를 제안합니다. 
+github.com
+
+libpst 의 readpst(pst-utils) 를 먼저 mbox 로 변환한 뒤 mbox 를 다시 파싱하는 방법도 있으나, 한 번 더 디스크 I/O 가 발생하고 첨부파일 메타데이터가 일부 유실되므로 권장하지 않습니다.
+```
 ## 참고
 
 1. [마이크로소프트 인증사이트](https://myaccount.microsoft.com/)
