@@ -30,7 +30,7 @@ KST = timezone(timedelta(hours=9))
 @dataclass(slots=True, frozen=True)
 class Config:
     # ───────────────────────────── Office 365 ──────────────────────────────
-    email_id: str
+    email_user_id: str
     email_pw: str
     tenant_id: str
     client_id: str
@@ -79,7 +79,7 @@ class Config:
             return to_type(val) if to_type is int else val
 
         return cls(
-            email_id=_cast("EMAIL_ID", str),
+            email_user_id=_cast("EMAIL_ID", str),
             email_pw=_cast("EMAIL_PW", str),
             tenant_id=_cast("TENANT_ID", str),
             client_id=_cast("CLIENT_ID", str),

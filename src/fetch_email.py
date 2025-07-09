@@ -79,7 +79,7 @@ def save_last_email_id_and_time(last_mail_time, last_email_id, title, config):
             data = json.load(f)
             data["last_fetch_time"] = ts
             data["last_email_id"] = last_email_id
-            data["last_fetch_time_kst"] = utc_to_kst(ts, as_iso=True)  # KST로 변환
+            data["last_fetch_time_kst"] = utc_to_kst(ts, as_iso=False)  # KST로 변환
             data["title"] = title  # 제목 추가
             f.seek(0)
             json.dump(data, f, indent=4, ensure_ascii=False)
@@ -302,149 +302,6 @@ def receive_time_to_format_str(receive_time: str) -> str:
         # 변환 실패시 현재 시각으로 기본값
         return datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
-def fetch_email_from_office365(config, one_day:str = None):
-    """
-    LAST_TIME.json 파일에서 마지막 이메일 수집 시각을 읽어오고,
-    없으면 그날의 00:00:00 시각을 반환합니다.
-    그 시각 이후의 메일을 모두 가져와서 db에 저장, attachments를 다운로드합니다.
-    """
-    MAIL_USER = config.email_id
-
-    token = get_graph_token(config)
-    if not token:
-        raise TokenError("❌ Graph API 토큰 발급 실패")
-
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json'
-    }
-    
-    # LAST_TIME.json에서 최종 email_id를 가져온다.
-    last_email_id = config.last_email_id
-    is_first_fetch = False
-    if one_day: # 하루동안의 메일
-        logger.info(f"하루동안의 메일을 가져옵니다: {one_day}")
-        params = build_params_for_one_day(one_day)
-        last_email_id = None  # 하루 단위로 가져오면 마지막 ID는 의미 없음
-    elif not last_email_id:
-        is_first_fetch = True
-        logger.warning("⚠️마지막 이메일 ID가 없으므로(LAST_TIME.json 없는지 체크), 1건만 가져옵니다.")
-        params = {
-            "$orderby": "receivedDateTime desc",                    # 최신부터
-            "$top": 1,                                             # 1개만
-            "$select": (
-                "subject,from,sender,receivedDateTime,hasAttachments,id,"
-                "toRecipients,ccRecipients"
-            )
-        }    
-    else:
-        cursor = config.last_mail_fetch_time
-        cursor_str = cursor.astimezone(timezone.utc)          \
-                        .strftime('%Y-%m-%dT%H:%M:%SZ')  # → '2025-06-23T15:00:00Z'    
-        params = {
-            # 오늘 00:00 이후 메일 전부
-            "$filter": f"receivedDateTime ge {cursor_str}",
-            # 페이지당 최대 1000건 (더 많으면 @odata.nextLink 로 자동 페이지 이동)
-            "$orderby": "receivedDateTime desc",               # ← 정렬 추가
-            "$top": 1000,
-            # 원하는 필드만 선택
-            "$select": "subject,from,sender, receivedDateTime,hasAttachments,id,toRecipients,ccRecipients"
-        }
-    
-    # cursor = config.last_mail_fetch_time
-    # cursor_str = cursor.astimezone(timezone.utc)          \
-    #                  .strftime('%Y-%m-%dT%H:%M:%SZ')  # → '2025-06-23T15:00:00Z'    
-    # 예: '2025-06-23T15:00:00Z'    
-    url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages'
-    
-    try:
-        graph = requests.Session()
-        graph.headers.update(headers)  # 세션에 헤더 추가
-        response = graph.get(url, headers=headers, params=params)
-        # 현재 시각을 UTC로 변환
-        db_path = None
-        ymd_path = None
-        if not is_first_fetch:
-            ymd_path, db_path = get_ymd_path_and_dbpath(config, one_day)  # ymd_path, db_path 생성
-        email_data_list = []
-        if response.status_code == 200:
-            emails = response.json().get('value', [])
-            logger.info(f"✅ {len(emails)}개의 이메일을 가져왔습니다. 새로운 메일:{len(emails)-1}, 마지막 1개는 체크용임")
-            last_mail_time = None
-            count = 0
-            logger.info("--------------------------------------------------------")
-            for email in emails:
-                email_id = email.get('id', 'ID 없음')
-                subject = email.get('subject', '제목 없음')
-                from_address = email.get('from', {}).get('emailAddress', {}).get('address', '')
-                from_name = email.get('from', {}).get('emailAddress', {}).get('name', '')
-                sender_address = email.get('sender', {}).get('emailAddress', {}).get('address', '')
-                sender_name = email.get('sender', {}).get('emailAddress', {}).get('name', '')
-                received_time = email.get('receivedDateTime', '날짜 없음')
-                to_recipients  = ', '.join(r.get('emailAddress', {}).get('address') for r in email.get('toRecipients', []) if r.get('emailAddress', {}).get('address')) or '받는 사람 없음'
-                cc_recipients  = ', '.join(r.get('emailAddress', {}).get('address') for r in email.get('ccRecipients', []) if r.get('emailAddress', {}).get('address')) or '참조 없음'
-
-                content = get_message_body(graph, MAIL_USER, email_id) or '내용 없음'                
-                kst_time = utc_to_kst(received_time, as_iso=True)  # KST로 변환
-
-                # last_mail_time은 가장 최근 시각으로 설정
-                if last_mail_time is None or received_time > last_mail_time:
-                    last_mail_time = received_time
-
-                if is_first_fetch:
-                    last_email_id = email_id
-                    logger.info(f"가장 최근 이메일 수집: {email_id} - {subject}")
-                    break
-                if last_email_id == email_id:
-                    logger.info(f"마지막 이메일 ID와 일치합니다. 수집을 중단합니다.")
-                    break    
-                # 첨부파일이 있는 경우 다운로드
-                attach_files= []
-                if email.get('hasAttachments'):
-                    attach_files = download_attachments( MAIL_USER, email['id'], headers, ymd_path, kst_time)
-
-                email_time = receive_time_to_format_str(received_time)  # '2021-03-02 04:34:29.008971' 형식으로 변환
-                # 데이터 메모리에 저장
-                email_data_list.append({
-                    'email_id': email_id,
-                    'subject': subject,
-                    'sender_address': sender_address,
-                    'sender_name': sender_name,
-                    'from_address': from_address,
-                    'from_name': from_name,
-                    'to_recipients': to_recipients,
-                    'cc_recipients': cc_recipients,
-                    'email_time': email_time,  # UTC 시각
-                    'kst_time': kst_time,          # KST 시각
-                    'content': content,
-                    'attach_files': attach_files if not is_first_fetch else []
-                })
-                count += 1
-                logger.info(f"{count} : {subject} ({kst_time}), 첨부파일 개수: {len(attach_files) if not is_first_fetch else 0}")
-            logger.info("--------------------------------------------------------")
-            # 처음이면 last_time.json저장    
-            if is_first_fetch:
-                save_last_email_id_and_time(last_mail_time, last_email_id, subject, config)
-            elif email_data_list:
-                last_email_id = email_data_list[0]['email_id']
-                title = email_data_list[0]['subject']
-                create_db_tables(db_path)  # DB 초기화
-                # 마지막 이메일 ID와 시각 저장
-                save_last_email_id_and_time(last_mail_time, last_email_id, title, config)
-                # DB에 저장 
-                db_path = save_email_data_to_db(email_data_list, db_path)
-            else:
-                kst = utc_to_kst(last_mail_time, as_iso=True) if last_mail_time else '알 수 없음'
-                logger.warning(f"⚠️ 시각: {kst} 으로부터 수신된 이메일이 없습니다.")
-                db_path = None
-            return db_path
-        else:
-            raise EmailFetchError(f"❌ API 호출 실패: {response.status_code} - {response.text}")
-            
-    except Exception as e:
-        raise EmailFetchError(f"❌ 이메일 수집시 알려지지 않은 오류: {e}")
-
-
 def make_physical_file_name(prefix: str = "", ext: str = "") -> str:
     now = datetime.now()
     # 앞부분: YYYYMMDD_HHMMSS
@@ -452,7 +309,7 @@ def make_physical_file_name(prefix: str = "", ext: str = "") -> str:
     micros = f"{now.microsecond:06d}"
     return f"{prefix}_{micros}{ext}"
 
-def download_attachments(MAIL_USER, email_id, headers, ymd_path, kst_time: str) -> list:
+def download_attachments(MAIL_USER, email_id, headers, ymd_path, kst_time: str, config) -> list:
     """첨부파일 다운로드"""
     url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages/{email_id}/attachments'
     
@@ -490,7 +347,8 @@ def download_attachments(MAIL_USER, email_id, headers, ymd_path, kst_time: str) 
                     date_prefix = kst_time[:10].replace("-", "")
                     physical_filename = make_physical_file_name(prefix=date_prefix, ext=ext)  
                     org_filename = os.path.basename(filepath)
-                    save_folder = str(attach_path)
+                    # save_folder는 attach_path에서 config의 data_base_dir을 뺀다
+                    save_folder = str(attach_path.relative_to(config.data_base_dir))
                     with open(filepath, 'wb') as f:
                         f.write(file_data)
                     attach_files.append({
@@ -506,3 +364,155 @@ def download_attachments(MAIL_USER, email_id, headers, ymd_path, kst_time: str) 
         return attach_files
     except Exception as e:
         raise  AttachFileFetchError(f"❌ {e}")
+
+def fetch_email_from_office365(config, one_day:str = None):
+    """
+    ✳️ 메인 로직
+    LAST_TIME.json 파일에서 마지막 이메일 수집 시각을 읽어오고,
+    없으면 그날의 00:00:00 시각을 반환합니다.
+    그 시각 이후의 메일을 모두 가져와서 db에 저장, attachments를 다운로드합니다.
+    """
+    MAIL_USER = config.email_user_id
+
+    token = get_graph_token(config)
+    if not token:
+        raise TokenError("❌ Graph API 토큰 발급 실패")
+
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    
+    # LAST_TIME.json에서 최종 email_id를 가져온다.
+    last_email_id = config.last_email_id
+    is_first_fetch = False
+    if one_day: # 하루동안의 메일
+        logger.info(f"하루동안의 메일을 가져옵니다: {one_day}")
+        params = build_params_for_one_day(one_day)
+        last_email_id = None  # 하루 단위로 가져오면 마지막 ID는 의미 없음
+    elif not last_email_id: # 처음 1번 만 가져오는 경우
+        is_first_fetch = True
+        logger.warning("⚠️마지막 이메일 ID가 없으므로(LAST_TIME.json 없는지 체크), 1건만 가져옵니다.")
+        params = {
+            "$orderby": "receivedDateTime desc",                    # 최신부터
+            "$top": 1,                                             # 1개만
+            "$select": (
+                "subject,from,sender,receivedDateTime,hasAttachments,id,"
+                "toRecipients,ccRecipients"
+            )
+        }    
+    else: # 주기적으로 가져오는 경우 
+        cursor = config.last_mail_fetch_time
+        cursor_str = cursor.astimezone(timezone.utc)          \
+                        .strftime('%Y-%m-%dT%H:%M:%SZ')  # → '2025-06-23T15:00:00Z'    
+        params = {
+            # 오늘 00:00 이후 메일 전부
+            "$filter": f"receivedDateTime ge {cursor_str}",
+            # 페이지당 최대 1000건 (더 많으면 @odata.nextLink 로 자동 페이지 이동)
+            "$orderby": "receivedDateTime desc",               # ← 정렬 추가
+            # "$top": 1000,
+            "$top": 10,
+            # 원하는 필드만 선택
+            "$select": "subject,from,sender, receivedDateTime,hasAttachments,id,toRecipients,ccRecipients, parentFolderId"
+        }
+    
+    # cursor = config.last_mail_fetch_time
+    # cursor_str = cursor.astimezone(timezone.utc)          \
+    #                  .strftime('%Y-%m-%dT%H:%M:%SZ')  # → '2025-06-23T15:00:00Z'    
+    # 예: '2025-06-23T15:00:00Z'    
+    url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages'
+    
+    try:
+        graph = requests.Session()
+        graph.headers.update(headers)  # 세션에 헤더 추가
+        response = graph.get(url, headers=headers, params=params)
+        # 현재 시각을 UTC로 변환
+        db_path = None
+        ymd_path = None
+        if not is_first_fetch:
+            ymd_path, db_path = get_ymd_path_and_dbpath(config, one_day)  # ymd_path, db_path 생성
+        email_data_list = []
+        if response.status_code == 200:
+            emails = response.json().get('value', [])
+            logger.info(f"✅ {len(emails)}개의 이메일을 가져왔습니다. 새로운 메일:{len(emails)-1}, 마지막 1개는 체크용임")
+            last_mail_time = None
+            count = 0
+            logger.info("--------------------------------------------------------")
+            for email in emails:
+                email_id = email.get('id', 'ID 없음')
+                subject = email.get('subject', '제목 없음')
+                from_address = email.get('from', {}).get('emailAddress', {}).get('address', '')
+                from_name = email.get('from', {}).get('emailAddress', {}).get('name', '')
+                sender_address = email.get('sender', {}).get('emailAddress', {}).get('address', '')
+                sender_name = email.get('sender', {}).get('emailAddress', {}).get('name', '')
+                received_time = email.get('receivedDateTime', '날짜 없음')
+                to_recipients  = ', '.join(r.get('emailAddress', {}).get('address') for r in email.get('toRecipients', []) if r.get('emailAddress', {}).get('address')) or '받는 사람 없음'
+                cc_recipients  = ', '.join(r.get('emailAddress', {}).get('address') for r in email.get('ccRecipients', []) if r.get('emailAddress', {}).get('address')) or '참조 없음'
+
+                content = get_message_body(graph, MAIL_USER, email_id) or '내용 없음'                
+                kst_time = utc_to_kst(received_time, as_iso=False)  # KST로 변환
+
+                # last_mail_time은 가장 최근 시각으로 설정
+                if last_mail_time is None or received_time > last_mail_time:
+                    last_mail_time = received_time
+
+                if is_first_fetch:
+                    last_email_id = email_id
+                    logger.info(f"가장 최근 이메일 수집: {email_id} - {subject}")
+                    break
+                if last_email_id == email_id:
+                    logger.info(f"마지막 이메일 ID와 일치합니다. 수집을 중단합니다.")
+                    break    
+                # 첨부파일이 있는 경우 다운로드
+                attach_files= []
+                if email.get('hasAttachments'):
+                    attach_files = download_attachments( MAIL_USER, email['id'], headers, ymd_path, kst_time, config)
+
+                email_time = receive_time_to_format_str(received_time)  # '2021-03-02 04:34:29.008971' 형식으로 변환
+                msg_kind = 'receive'
+                if sender_address == MAIL_USER:
+                    msg_kind = 'sent'
+
+                # 데이터 메모리에 저장
+                email_data_list.append({
+                    'email_id': email_id,
+                    'subject': subject,
+                    'sender_address': sender_address,
+                    'sender_name': sender_name,
+                    'from_address': from_address,
+                    'from_name': from_name,
+                    'to_recipients': to_recipients,
+                    'cc_recipients': cc_recipients,
+                    'email_time': email_time,  # UTC 시각
+                    'kst_time': kst_time,          # KST 시각
+                    'content': content,
+                    'note': None,
+                    'msg_kind': msg_kind,
+                    'folder_path': None,
+                    'attach_files': attach_files if not is_first_fetch else []
+                })
+                count += 1
+                logger.info(f"{count} : {subject} ({kst_time}), 첨부파일 개수: {len(attach_files) if not is_first_fetch else 0}")
+            logger.info("--------------------------------------------------------")
+            # 처음이면 last_time.json저장    
+            if is_first_fetch:
+                save_last_email_id_and_time(last_mail_time, last_email_id, subject, config)
+            elif email_data_list:
+                last_email_id = email_data_list[0]['email_id']
+                title = email_data_list[0]['subject']
+                create_db_tables(db_path)  # DB 초기화
+                # 마지막 이메일 ID와 시각 저장
+                save_last_email_id_and_time(last_mail_time, last_email_id, title, config)
+                # DB에 저장 
+                db_path = save_email_data_to_db(email_data_list, db_path)
+            else:
+                kst = utc_to_kst(last_mail_time, as_iso=False) if last_mail_time else '알 수 없음'
+                logger.warning(f"⚠️ 시각: {kst} 으로부터 수신된 이메일이 없습니다.")
+                db_path = None
+            return db_path
+        else:
+            raise EmailFetchError(f"❌ API 호출 실패: {response.status_code} - {response.text}")
+            
+    except Exception as e:
+        raise EmailFetchError(f"❌ 이메일 수집시 알려지지 않은 오류: {e}")
+

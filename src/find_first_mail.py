@@ -26,7 +26,7 @@ def get_graph_token(config):
 token = get_graph_token(Config.load())
 cfg = Config.load()    
 
-MAIL_USER = cfg.email_id
+MAIL_USER = cfg.email_user_id
 url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages'
 params = {
     "$orderby": "receivedDateTime asc",
