@@ -29,7 +29,10 @@ def create_db_tables(db_path):
             cc_recipients TEXT,  -- 참조자 목록
             email_time TEXT,
             kst_time TEXT,
-            content TEXT
+            content TEXT,
+            msg_kind TEXT,
+            folder_path TEXT,
+            note TEXT DEFAULT ''  -- 추가 정보 (예: PST 손상 여부 등)
         )
     """)
     cur.execute("""
@@ -38,7 +41,10 @@ def create_db_tables(db_path):
             parent_id INTEGER,
             email_id TEXT,  -- fund_mail 테이블의 id
             save_folder TEXT,
-            file_name TEXT
+            org_file_name TEXT,
+            phy_file_name TEXT,
+            file_size INTEGER DEFAULT 0,
+            FOREIGN KEY (parent_id) REFERENCES fund_mail(id) ON DELETE CASCADE
         )
     """)        
     conn.commit()
@@ -66,8 +72,8 @@ def save_email_data_to_db(email_data_list, db_path):
                     INSERT INTO fund_mail
                           (email_id, subject, sender_address, sender_name, from_address, from_name,
                            to_recipients, cc_recipients,
-                           email_time, kst_time, content)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           email_time, kst_time, msg_kind, folder_path, content, note)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     email["email_id"],
                     email["subject"],
@@ -79,7 +85,10 @@ def save_email_data_to_db(email_data_list, db_path):
                     email["cc_recipients"],
                     email["email_time"],
                     email["kst_time"],
+                    email["msg_kind"],
+                    email["folder_path"],
                     email["content"],
+                    email["note"]
                 ))
                 parent_id = cur.lastrowid
 
@@ -88,13 +97,15 @@ def save_email_data_to_db(email_data_list, db_path):
                     (parent_id,
                      attach["email_id"],
                      attach["save_folder"],
-                     attach["file_name"])
+                     attach["org_file_name"],
+                     attach["phy_file_name"], 
+                     attach['file_size'])
                     for attach in email.get("attach_files", [])
                 ]
                 cur.executemany("""
                     INSERT INTO fund_mail_attach
-                          (parent_id, email_id, save_folder, file_name)
-                    VALUES (?, ?, ?, ?)
+                          (parent_id, email_id, save_folder, org_file_name, phy_file_name, file_size)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 """, attach_rows)
                 attach_count = attach_count + len(attach_rows)
             # with-블록을 무사히 통과해야만 COMMIT 발생

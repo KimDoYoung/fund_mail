@@ -109,7 +109,43 @@ def get_message_body(graph: requests.Session,MAIL_USER:str, message_id: str) -> 
     data = r.json()
     return data.get("body", {}).get("content") or None
 
-def utc_to_kst(utc_str: str, *, as_iso: bool = True) -> str:
+# def utc_to_kst(utc_str: str, *, as_iso: bool = True) -> str:
+#     """
+#     UTC ISO-8601 문자열(Z 포함 가능)을 KST(+09:00) 문자열로 변환한다.
+
+#     Parameters
+#     ----------
+#     utc_str : str
+#         예) "2025-06-25T04:47:45Z"  또는  "2025-06-25T04:47:45+00:00"
+#     as_iso : bool, default True
+#         True  → '2025-06-25T13:47:45+09:00'  (ISO-8601)
+#         False → '2025-06-25 13:47:45'        (가독성이 좋은 포맷)
+
+#     Returns
+#     -------
+#     str
+#         변환된 KST 시각 문자열. 입력이 None/'' 일 경우 빈 문자열 반환.
+#     """
+#     if not utc_str:
+#         return ""
+
+#     # 1) 'Z' 표기를 '+00:00' 로 바꿔야 fromisoformat() 이 읽을 수 있음
+#     if utc_str.endswith("Z"):
+#         utc_str = utc_str[:-1] + "+00:00"
+
+#     # 2) 문자열 → datetime(UTC)
+#     dt_utc = datetime.fromisoformat(utc_str).astimezone(timezone.utc)
+
+#     # 3) UTC → KST
+#     dt_kst = dt_utc.astimezone(KST)
+
+#     # 4) 원하는 형식으로 반환
+#     if as_iso:
+#         return dt_kst.isoformat()           # 2025-06-25T13:47:45+09:00
+#     else:
+#         return dt_kst.strftime("%Y-%m-%d %H:%M:%S")
+
+def utc_to_kst(utc_str: str, *, as_iso: bool = False) -> str:
     """
     UTC ISO-8601 문자열(Z 포함 가능)을 KST(+09:00) 문자열로 변환한다.
 
@@ -117,9 +153,9 @@ def utc_to_kst(utc_str: str, *, as_iso: bool = True) -> str:
     ----------
     utc_str : str
         예) "2025-06-25T04:47:45Z"  또는  "2025-06-25T04:47:45+00:00"
-    as_iso : bool, default True
+    as_iso : bool, default False
         True  → '2025-06-25T13:47:45+09:00'  (ISO-8601)
-        False → '2025-06-25 13:47:45'        (가독성이 좋은 포맷)
+        False → '2021-01-04 17:37:55'        (한국시간 기본 포맷)
 
     Returns
     -------
@@ -143,7 +179,7 @@ def utc_to_kst(utc_str: str, *, as_iso: bool = True) -> str:
     if as_iso:
         return dt_kst.isoformat()           # 2025-06-25T13:47:45+09:00
     else:
-        return dt_kst.strftime("%Y-%m-%d %H:%M:%S")
+        return dt_kst.strftime("%Y-%m-%d %H:%M:%S")  # 2021-01-04 17:37:55
 
 def is_logo_like(attachment: dict) -> bool:
     """본문 삽입 이미지(로고 등)인지 판단하는 유틸 함수"""
@@ -238,6 +274,33 @@ def build_params_for_one_day(target_date: str, top: int = 1000) -> dict:
         "$select": ("subject,from,sender,receivedDateTime,hasAttachments,"
                     "id,toRecipients,ccRecipients"),
     }	
+
+def receive_time_to_format_str(receive_time: str) -> str:
+    """
+    받은 시간을 '2021-03-02 04:34:29.008971' 형식의 문자열로 변환
+    
+    Parameters
+    ----------
+    receive_time : str
+        UTC ISO-8601 형식의 시간 문자열 (예: "2025-06-25T04:47:45Z")
+    
+    Returns
+    -------
+    str
+        '2021-03-02 04:34:29.008971' 형식의 문자열
+    """
+    try:
+        # UTC 문자열을 datetime으로 변환
+        if receive_time.endswith('Z'):
+            receive_time_clean = receive_time[:-1] + '+00:00'
+        else:
+            receive_time_clean = receive_time
+        
+        dt_utc = datetime.fromisoformat(receive_time_clean)
+        return dt_utc.strftime('%Y-%m-%d %H:%M:%S.%f')
+    except:
+        # 변환 실패시 현재 시각으로 기본값
+        return datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
 def fetch_email_from_office365(config, one_day:str = None):
     """
@@ -338,7 +401,9 @@ def fetch_email_from_office365(config, one_day:str = None):
                 # 첨부파일이 있는 경우 다운로드
                 attach_files= []
                 if email.get('hasAttachments'):
-                    attach_files = download_attachments( MAIL_USER, email['id'], headers, ymd_path)
+                    attach_files = download_attachments( MAIL_USER, email['id'], headers, ymd_path, kst_time)
+
+                email_time = receive_time_to_format_str(received_time)  # '2021-03-02 04:34:29.008971' 형식으로 변환
                 # 데이터 메모리에 저장
                 email_data_list.append({
                     'email_id': email_id,
@@ -349,7 +414,7 @@ def fetch_email_from_office365(config, one_day:str = None):
                     'from_name': from_name,
                     'to_recipients': to_recipients,
                     'cc_recipients': cc_recipients,
-                    'email_time': received_time,  # UTC 시각
+                    'email_time': email_time,  # UTC 시각
                     'kst_time': kst_time,          # KST 시각
                     'content': content,
                     'attach_files': attach_files if not is_first_fetch else []
@@ -361,13 +426,13 @@ def fetch_email_from_office365(config, one_day:str = None):
             if is_first_fetch:
                 save_last_email_id_and_time(last_mail_time, last_email_id, subject, config)
             elif email_data_list:
-                    last_email_id = email_data_list[0]['email_id']
-                    title = email_data_list[0]['subject']
-                    create_db_tables(db_path)  # DB 초기화
-                    # 마지막 이메일 ID와 시각 저장
-                    save_last_email_id_and_time(last_mail_time, last_email_id, title, config)
-                    # DB에 저장 
-                    db_path = save_email_data_to_db(email_data_list, db_path)
+                last_email_id = email_data_list[0]['email_id']
+                title = email_data_list[0]['subject']
+                create_db_tables(db_path)  # DB 초기화
+                # 마지막 이메일 ID와 시각 저장
+                save_last_email_id_and_time(last_mail_time, last_email_id, title, config)
+                # DB에 저장 
+                db_path = save_email_data_to_db(email_data_list, db_path)
             else:
                 kst = utc_to_kst(last_mail_time, as_iso=True) if last_mail_time else '알 수 없음'
                 logger.warning(f"⚠️ 시각: {kst} 으로부터 수신된 이메일이 없습니다.")
@@ -380,7 +445,14 @@ def fetch_email_from_office365(config, one_day:str = None):
         raise EmailFetchError(f"❌ 이메일 수집시 알려지지 않은 오류: {e}")
 
 
-def download_attachments(MAIL_USER, email_id, headers, ymd_path):
+def make_physical_file_name(prefix: str = "", ext: str = "") -> str:
+    now = datetime.now()
+    # 앞부분: YYYYMMDD_HHMMSS
+    # 뒷부분: microseconds(000000 ~ 999999)
+    micros = f"{now.microsecond:06d}"
+    return f"{prefix}_{micros}{ext}"
+
+def download_attachments(MAIL_USER, email_id, headers, ymd_path, kst_time: str) -> list:
     """첨부파일 다운로드"""
     url = f'https://graph.microsoft.com/v1.0/users/{MAIL_USER}/messages/{email_id}/attachments'
     
@@ -412,16 +484,22 @@ def download_attachments(MAIL_USER, email_id, headers, ymd_path):
                 if content:
                     import base64
                     file_data = base64.b64decode(content)
+                    file_size = len(file_data)  
                     filepath = os.path.join(attach_path, filename)
-                    filepath = if_exist_change_filename(filepath)  # 중복 파일명 처리
-                    filepath = truncate_filepath(filepath)  
+                    ext = os.path.splitext(filepath)[1]
+                    date_prefix = kst_time[:10].replace("-", "")
+                    physical_filename = make_physical_file_name(prefix=date_prefix, ext=ext)  
+                    org_filename = os.path.basename(filepath)
+                    save_folder = str(attach_path)
                     with open(filepath, 'wb') as f:
                         f.write(file_data)
                     attach_files.append({
                         'parent_id': None,
                         'email_id': email_id,
+                        'org_file_name': org_filename,
+                        'phy_file_name': physical_filename,
                         'save_folder': str(attach_path),
-                        'file_name': os.path.basename(filepath)
+                        'file_size': file_size,
                     })
         else:
             raise AttachFileFetchError(f"첨부파일 API 호출 실패: {response.status_code} - {response.text}")
