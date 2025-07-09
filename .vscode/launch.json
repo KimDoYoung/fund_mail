@@ -1,46 +1,59 @@
 {
-    "configurations": [
-      {
-        "type": "debugpy",
-        "name": "Python: Current File",
-        "request": "launch",
-        "justMyCode": true,
-        // "program": "${file}",
-        // "program": "${workspaceFolder}/src/main.py",
-        "program": "${workspaceFolder}/src/find_first_mail.py",
-        "console": "integratedTerminal",
-        "env": {
-          "PYTHONPATH": "${workspaceFolder}/src"
-        }
+  "configurations": [
+    {
+      "type": "debugpy",
+      "name": "PST0",
+      "request": "launch",
+      "justMyCode": true,
+      // "program": "${file}",
+      // "program": "${workspaceFolder}/src/main.py",
+      "program": "${workspaceFolder}/src/pst1.py",
+      "console": "integratedTerminal",
+      "python": "${workspaceFolder}/.venv/bin/python", // ★ 반드시 venv 경로
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      }
+    },
+    {
+      "type": "debugpy",
+      "name": "Python: Current File",
+      "request": "launch",
+      "justMyCode": true,
+      // "program": "${file}",
+      // "program": "${workspaceFolder}/src/main.py",
+      "program": "${workspaceFolder}/src/find_first_mail.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      }
+    },
+    {
+      "type": "debugpy",
+      "name": "EXE",
+      "request": "launch",
+      "justMyCode": true,
+      // "program": "${file}",
+      "program": "${workspaceFolder}/src/main_once.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      }
+    },
+    {
+      "type": "debugpy",
+      "name": "ONE-DAY",
+      "request": "launch",
+      "justMyCode": true,
+      // "program": "${file}",
+      "program": "${workspaceFolder}/src/main_one_day.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
       },
-      {
-        "type": "debugpy",
-        "name": "EXE",
-        "request": "launch",
-        "justMyCode": true,
-        // "program": "${file}",
-        "program": "${workspaceFolder}/src/main_once.py",
-        "console": "integratedTerminal",
-        "env": {
-          "PYTHONPATH": "${workspaceFolder}/src"
-        }
-      },
-      {
-        "type": "debugpy",
-        "name": "ONE-DAY",
-        "request": "launch",
-        "justMyCode": true,
-        // "program": "${file}",
-        "program": "${workspaceFolder}/src/main_one_day.py",
-        "console": "integratedTerminal",
-        "env": {
-          "PYTHONPATH": "${workspaceFolder}/src"
-        },
-        "args": [
-          "--date",
-          "2020-09-04"
-        ]
-      }      
-
-    ]
-  }
+      "args": [
+        "--date",
+        "2020-09-04"
+      ]
+    }
+  ]
+}

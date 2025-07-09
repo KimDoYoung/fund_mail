@@ -14,6 +14,13 @@
 4. sftp
 5. dotenv
 
+## 추가 요구사항
+
+1. 테이블 필드를 pst-utils와 동일하게
+2. 날짜 format을 2021-07-19 07:50:53.360111 식으로
+3. 서비스로 돌려야 한다.
+4. 첨부파일의 size추가
+
 ## 빌드
 
 1. make_exe.sh
@@ -23,7 +30,7 @@
    4. tashschd에서 매시간 동작하게 설정
    
 2. make_svc.sh
-   0. 관리자권한으로 cmd를 실행한다
+   0. 관리자권한으로 cmd를 실행한다. main.py를 사용
    1. 전제조건 uv와 python이 설치되어 있다고 가정
    ```bash
       which python
@@ -169,7 +176,20 @@ CREATE TABLE fund_mail_attach (
    1. 사용자가 로그인해서 인증하는 방식에서 사용됨
    2. fund_mail에서는 **Client Credentials Grant** 방식으로 refresh token은 사용치 않음.
 8. [ms 공식 매뉴얼](https://learn.microsoft.com/en-us/graph/api/user-list-messages?view=graph-rest-1.0&tabs=http) 참조
-   
+
+9. 보낸 메일과 받은 메일이 포함되는가?
+```text
+/users/{id}/messages (또는 /me/messages) 호출은 “메일박스에 있는 모든 메시지” 를 가져오는 엔드포인트이기 때문에 Sent Items(보낸 편지함) 메일도 포함됩니다.
+
+Microsoft 공식 Q&A에서 “/me/messages 엔드포인트는 모든 폴더·하위폴더의 메일을 반환한다” 고 명시 
+learn.microsoft.com
+.
+즉 Inbox, Sent Items, Deleted Items, 사용자 정의 폴더 등 전체가 한 번에 모여 나옵니다.
+
+Graph REST 문서도 “사용자의 mailbox 메시지를 가져온다(Deleted Items·Clutter 포함)”로 설명하며, mailbox 범위에는 Sent Items가 당연히 들어갑니다 
+learn.microsoft.com
+.
+```   
 
 ## 유틸리티들
 
@@ -218,3 +238,4 @@ libpst 의 readpst(pst-utils) 를 먼저 mbox 로 변환한 뒤 mbox 를 다시 
 
 1. [마이크로소프트 인증사이트](https://myaccount.microsoft.com/)
 2. [Learn graph api](https://learn.microsoft.com/en-us/graph/api/user-list-messages?view=graph-rest-1.0&tabs=http)
+
