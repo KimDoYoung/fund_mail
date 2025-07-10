@@ -5,6 +5,16 @@ OS="$(uname -s)"
 EXE_NAME="fund_mail_one_day"
 ENTRY_SCRIPT="src/main_one_day.py"
 
+# dist/build 디렉토리 삭제
+if [[ -d "dist" ]]; then
+    echo "🗑️  dist 디렉토리 삭제 중..."
+    rm -rf dist
+fi
+if [[ -d "build" ]]; then
+    echo "🗑️  build 디렉토리 삭제 중..."
+    rm -rf build
+fi
+
 # OS에 따라 Python 명령 설정 및 출력 파일명 결정
 if [[ "$OS" == "Linux"* || "$OS" == "Darwin"* ]]; then
     PYTHON_CMD="python3"
@@ -30,6 +40,13 @@ fi
 echo "🛠️  [$OS] 빌드 중..."
 $PYTHON_CMD -m PyInstaller --name "$EXE_NAME" --onefile "$ENTRY_SCRIPT"
 
+# .env파일을 dist 폴더로 복사
+if [[ -f ".env" ]]; then
+    echo "📄 .env 파일을 dist 폴더로 복사 중..."
+    cp .env dist/
+else
+    echo "⚠️ .env 파일이 존재하지 않습니다."
+fi
 # 결과 안내
 if [[ -f "dist/$FINAL_EXE_NAME" ]]; then
     echo "✅ 빌드 완료: dist/$FINAL_EXE_NAME"
