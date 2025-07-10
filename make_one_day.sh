@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# linux용임
 # 플랫폼 확인
 OS="$(uname -s)"
 EXE_NAME="fund_mail_one_day"
