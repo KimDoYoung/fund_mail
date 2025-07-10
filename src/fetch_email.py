@@ -297,6 +297,9 @@ def receive_time_to_format_str(receive_time: str) -> str:
             receive_time_clean = receive_time
         
         dt_utc = datetime.fromisoformat(receive_time_clean)
+        # 마이크로초가 0이면 밀리초 없이 반환
+        if dt_utc.microsecond == 0:
+            return dt_utc.strftime('%Y-%m-%d %H:%M:%S')
         return dt_utc.strftime('%Y-%m-%d %H:%M:%S.%f')
     except:
         # 변환 실패시 현재 시각으로 기본값
@@ -342,13 +345,13 @@ def download_attachments(MAIL_USER, email_id, headers, ymd_path, kst_time: str, 
                     import base64
                     file_data = base64.b64decode(content)
                     file_size = len(file_data)  
-                    filepath = os.path.join(attach_path, filename)
-                    ext = os.path.splitext(filepath)[1]
                     date_prefix = kst_time[:10].replace("-", "")
+                    ext = os.path.splitext(filename)[1]
                     physical_filename = make_physical_file_name(prefix=date_prefix, ext=ext)  
-                    org_filename = os.path.basename(filepath)
+                    org_filename = os.path.basename(filename)
+                    filepath = os.path.join(attach_path, physical_filename)
                     # save_folder는 attach_path에서 config의 data_base_dir을 뺀다
-                    save_folder = str(attach_path.relative_to(config.data_base_dir))
+                    save_folder = str(attach_path.relative_to(config.data_dir))
                     with open(filepath, 'wb') as f:
                         f.write(file_data)
                     attach_files.append({
@@ -356,7 +359,7 @@ def download_attachments(MAIL_USER, email_id, headers, ymd_path, kst_time: str, 
                         'email_id': email_id,
                         'org_file_name': org_filename,
                         'phy_file_name': physical_filename,
-                        'save_folder': str(attach_path),
+                        'save_folder': save_folder,
                         'file_size': file_size,
                     })
         else:

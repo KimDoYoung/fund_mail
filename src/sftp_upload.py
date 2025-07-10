@@ -57,7 +57,7 @@ def get_local_attach_file_list(db_path):
     try:
         conn = sqlite3.connect(db_path)
         cur = conn.cursor()
-        cur.execute("SELECT save_folder, file_name FROM fund_mail_attach")
+        cur.execute("SELECT save_folder, phy_file_name FROM fund_mail_attach")
         rows = cur.fetchall()
         conn.close()
         
@@ -96,6 +96,7 @@ def upload_to_sftp(config, db_path):
             mkdir_p(sftp, attach_dir)
         count = 0
         for file_path in file_list:
+            file_path = config.data_dir / file_path  # 절대 경로로 변환
             if os.path.exists(file_path):
                 remote_attach_path = f"{attach_dir}/{os.path.basename(file_path)}"
                 sftp.put(file_path, remote_attach_path)

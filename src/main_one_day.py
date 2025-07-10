@@ -68,18 +68,22 @@ def main() -> None:
     else:
         date_str = datetime.now(KST).strftime("%Y-%m-%d")
     logger.info(f"=" * 59)
-    logger.info(f"모든 메일 가져오기: {date_str} (KST)")
+    logger.info(f"✅ {date_str}(KST)의 모든 메일 가져오기")
     logger.info(f"=" * 59)
-
-    # 2️⃣ Load project configuration (credentials, paths, etc.)
-    cfg = Config.load() 
-    db_path = fetch_email_from_office365(cfg, one_day=date_str)
-    if db_path:
-        upload_to_sftp(cfg, db_path)    
-
-    logger.info(f"=" * 59)
-    logger.info(f"[fund_mail] Saved {date_str} e‑mails to → {db_path}")
-    logger.info(f"=" * 59)
+    try:
+        # 2️⃣ Load project configuration (credentials, paths, etc.)
+        cfg = Config.load() 
+        db_path = fetch_email_from_office365(cfg, one_day=date_str)
+        if db_path:
+            upload_to_sftp(cfg, db_path)    
+        logger.info("=" * 59)
+        logger.info("✅ {date_str}(KST) 완료: %s", datetime.now())
+        logger.info("=" * 59)
+    except Exception as exc:
+        logger.info(f"=" * 59)
+        logger.exception("⛔ fund메일 작업 중 예외 발생 – 프로세스 종료")
+        logger.info(f"=" * 59)
+        sys.exit(1)
 
 
 if __name__ == "__main__":  # pragma: no cover
