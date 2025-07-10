@@ -13,6 +13,7 @@ dependencies = [
     "pyinstaller>=6.14.1",
     "python-dotenv>=1.1.0",
     "pytz>=2025.2",
+    "pywin32>=310",
     "pyzmail36>=1.0.5",
     "sqlalchemy>=2.0.41",
     "tzdata>=2025.2",

@@ -51,6 +51,10 @@ class Config:
     @classmethod
     def load(cls, env_file: str | Path = ".env") -> "Config":
         """`.env` → :class:`Config` 인스턴스를 반환."""
+        if env_file == ".env":
+            default_env = Path("c:/fund_mail/.env")
+            if default_env.exists():
+                env_file = default_env
         load_dotenv(env_file)
 
         required: dict[str, type] = {

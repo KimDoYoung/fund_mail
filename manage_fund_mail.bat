@@ -21,6 +21,8 @@ echo 7. Exit
 echo.
 set /p choice=Select option (1-7): 
 
+REM chcp 65001
+
 if "%choice%"=="1" goto INSTALL
 if "%choice%"=="2" goto START
 if "%choice%"=="3" goto STOP

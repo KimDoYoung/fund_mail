@@ -42,8 +42,18 @@
    4. source .venv/Scripts/activate (cmd에서는 .venv/Scripts/activate)
    5. uv sync (cmd : c:\Users\PC\.local\bin\uv sync)
    6. python src/service_wrapper.py install/start/stop/remove/debug
+   7. 
+```bash
+#작업폴더에서
+./make_svc.sh
+cmd+r 관리자로
+cd c:\fund_mail
+c:\Users\PC\.local\bin\uv venv
+.venv\Scripts\activate.bat
+c:\Users\PC\.local\bin\uv sync
+```
 
-3. make_one_day.sh
+1. make_one_day.sh
    1. fund_mail_one_day.exe를 생성한다.
    ```bash
       fund_mail_one_day --date 2025-06-30
@@ -239,4 +249,5 @@ libpst 의 readpst(pst-utils) 를 먼저 mbox 로 변환한 뒤 mbox 를 다시 
 
 1. [마이크로소프트 인증사이트](https://myaccount.microsoft.com/)
 2. [Learn graph api](https://learn.microsoft.com/en-us/graph/api/user-list-messages?view=graph-rest-1.0&tabs=http)
+
 

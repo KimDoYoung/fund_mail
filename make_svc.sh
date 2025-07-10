@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ----- 설정 -----
-DIST_DIR="dist"
+DIST_DIR="c:\\fund_mail"
 SRC_DIR="src"
 UV_FILES=(pyproject.toml uv.lock requirements.txt README.md)   # uv sync 용
 # -----------------
