@@ -44,18 +44,20 @@
    
 2. make_svc.sh
    0. 관리자권한으로 cmd를 실행한다. main.py를 사용
-   1. 전제조건 uv와 python이 설치되어 있다고 가정
+   1. 전제조건 uv와 python 3.12이 설치되어 있다고 가정
    ```bash
       which python
       uv python list
-      uv python install 3.11
+      uv python install 3.12
    ``` 
    2. c:\fund_mail에 dist/의 모든 파일 copy
    3. uv venv
    4. source .venv/Scripts/activate (cmd에서는 .venv/Scripts/activate)
    5. uv sync (cmd : c:\Users\PC\.local\bin\uv sync)
    6. python src/service_wrapper.py install/start/stop/remove/debug
-   7. 
+   7. 4개의 파일이 필요하다.
+   8. 
+
 ```bash
 #작업폴더에서
 ./make_svc.sh
@@ -264,5 +266,60 @@ libpst 의 readpst(pst-utils) 를 먼저 mbox 로 변환한 뒤 mbox 를 다시 
 
 1. [마이크로소프트 인증사이트](https://myaccount.microsoft.com/)
 2. [Learn graph api](https://learn.microsoft.com/en-us/graph/api/user-list-messages?view=graph-rest-1.0&tabs=http)
+
+
+
+
+## python window service 만들기
+
+## 작업
+
+1. python(ver 3.12), pywind32를 이용해서 윈도우 서비스형태로 프로그램이 동작하게 하고자 함
+2. 다음과 같은 에러가 남 install은 성공함. 관리자권한으로 cmd.exe에서 수행해 봄
+```
+(svc_example) C:\Users\PC\Work\svc_example>python svc1.py start
+
+Starting service MyService
+
+Error starting service: 서비스가 시작이나 제어 요청에 빠르게 응답하지 않았습니다.
+```
+
+3. .venv에 4개의 파일을 둠. 
+	- pythonservice.exe
+	- python312.dll
+	- pywintypes312.dll
+	- pythoncom312.dll
+
+4. svc1.py 코드
+   ```python
+   import win32serviceutil
+   import servicemanager
+   import ctypes
+   import sys
+   import time
+
+   OutputDebugString = ctypes.windll.kernel32.OutputDebugStringW
+
+   class MyServiceFramework(win32serviceutil.ServiceFramework):
+   _svc_name_ = 'MyPythonService'
+   _svc_display_name_ = 'My Python Service'
+   is_running = False
+
+   def SvcStop(self):
+      OutputDebugString("MyServiceFramework __SvcStop__")
+      self.is_running = False
+
+   def SvcDoRun(self):
+      self.is_running = True
+      while self.is_running:
+         OutputDebugString("MyServiceFramework __loop__")
+         time.sleep(1)
+
+   if '__main__' == __name__:
+   win32serviceutil.HandleCommandLine(MyServiceFramework)
+   ```	
+## 주의
+
+- 고급시스템에서 PATH에 등록해 줘야한다.
 
 

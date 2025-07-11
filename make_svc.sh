@@ -28,6 +28,9 @@ for f in "${UV_FILES[@]}"; do
   [[ -f "$f" ]] && cp "$f" "$DIST_DIR"/
 done
 
-echo "ℹ️  Windows 서비스 등록은 'nssm' 또는 'sc.exe' 를 사용하세요."
-echo "   예) nssm install fund_mail \"C:\\Python\\python.exe\" \"-m\" \"$SRC_DIR.main\""
+echo "ℹ️  cmd를 관리자로 실행해야 합니다."
+echo "uv venv --python 3.12"
+echo ".venv\\Scripts\\activate.bat"
+echo "uv sync --python 3.12"
 echo "✅  서비스용 디렉터리 준비 완료 : $DIST_DIR"
+
