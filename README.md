@@ -7,12 +7,25 @@
 4. 첨부파일을 다운로드한다.
 5. 만들어진 sqlite db와 첨부파일을 sftp를 통해서 서버에 전송한다.
 
+## 개요
+
+3종류의 프로그램을 작성하다.
+
+1. 과거 fund mail 백업받은 것으로 db와 첨부파일 추출, pst_utils라는 다른 프로젝트 생성
+   - [pst_utils](https://github.com/KimDoYoung/pst-utils): fund mail을 백업받은 파일(확장자 pst)를 해석
+   - 2018~2024년도 데이터까지는 이 프로그램으로 처리
+2. one_day 용 : 지정한 하루의 메일데이터를 API를 이용해서 추출
+3. 지정된시간(10분)용으로 윈도우 service를 이용해서 화면(cmd /c)없이 데몬형식으로 계속 도는 프로그램
+   1. 원래는 exe로 만들어서  taskschd에 걸어서 사용하려고 했으나 auto_esafe와 충돌이 나서 service를 고려하게 됨
+
+
 ## 기술스택
 1. python
 2. microsoft office365
 3. sqlitedb
 4. sftp
 5. dotenv
+6. pywin32 
 
 ## 추가 요구사항
 
@@ -60,6 +73,7 @@ c:\Users\PC\.local\bin\uv sync
    ```
    2. 하루치를 모두 받음. 
    3. 인자로 지정한 날짜를 기준으로 폴더를 생성하고 upload 폴더를 만듬.
+   4. run_one_day.sh은 bash shell로 from, to 2개의 인자로 날짜범위로 API를 이용해서 데이터를 받는다.
 
 
 ## 기능
@@ -71,6 +85,7 @@ c:\Users\PC\.local\bin\uv sync
 6. 5분마다 위 동작이 이루어지며 lose된 메일은 절대로 없어야한다.
 
 ## 설계
+
 ### .env에 기술되어야할 사항들
 ```bash
 #
@@ -105,8 +120,8 @@ SFTP_PW=
 > TIP from은 “보이는” 발신자, sender는 실제 SMTP 발송 계정입니다.
 > 위임 / Send As / Send On Behalf 권한이 걸린 메일에서는 두 값이 달라질 수 있으니, 정확한 “누가 보냈는지”를 알고 싶다면 sender를 활용하세요.
 
+### window service
 
-### 스케줄
 window의 tashschd또는 cron을 이용한다.
 
 ### DB설계

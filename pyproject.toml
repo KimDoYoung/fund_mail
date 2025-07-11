@@ -3,7 +3,7 @@ name = "fund-mail"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "debugpy>=1.8.14",
     "imapclient>=3.0.1",
