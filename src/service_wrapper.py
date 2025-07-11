@@ -10,24 +10,6 @@ import time
 from pathlib import Path
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).resolve().parent            # C:\fund_mail
-SRC_DIR  = BASE_DIR / "src"
-
-# 1) src 를 import 경로에 넣음  ← ImportError 방지
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
-# 2) 작업 폴더를 프로젝트 루트로 고정  ← 상대경로 FileNotFound 방지
-os.chdir(BASE_DIR)
-
-# 3) .env 절대경로로 읽기  ← 서비스에서도 확실히 로드
-load_dotenv(BASE_DIR / ".env")
-
-# 4) logs 폴더가 없으면 만들고 Everyone 읽기+쓰기 권한 부여(옵션)
-LOG_DIR = Path(os.getenv("LOG_DIR", BASE_DIR / "logs"))
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-os.chmod(LOG_DIR, 0o777)        # 간단 권한 부여(테스트용)
-
 class FundEmailFetchService(win32serviceutil.ServiceFramework):
     _svc_name_ = "FundEmailFetchService"
     _svc_display_name_ = "Fund Email Fetch Service"
@@ -40,6 +22,8 @@ class FundEmailFetchService(win32serviceutil.ServiceFramework):
         self.scheduler = None
         self.scheduler_thread = None
 
+        self.base_path = r'C:\fund_mail'
+        self.venv_path = os.path.join(self.base_path, '.venv')
         # 서비스 실행 경로 설정
         self.setup_paths()
 
@@ -48,20 +32,20 @@ class FundEmailFetchService(win32serviceutil.ServiceFramework):
 
     def setup_paths(self):
         """서비스 실행 시 경로 설정"""
-        # 현재 스크립트의 디렉토리를 기본 작업 디렉토리로 설정
-        if getattr(sys, 'frozen', False):
-            # 만약 exe로 빌드된 경우
-            self.base_dir = Path(sys.executable).parent
-        else:
-            # 일반 Python 스크립트인 경우
-            self.base_dir = Path(__file__).parent.absolute()
+        # 작업 디렉터리 설정
+        os.chdir(self.base_path)
         
-        # 작업 디렉토리 변경
-        os.chdir(self.base_dir)
+        # Python 경로 설정
+        venv_scripts = os.path.join(self.venv_path, 'Scripts')
+        venv_lib = os.path.join(self.venv_path, 'Lib', 'site-packages')
         
-        # Python path에 현재 디렉토리 추가
-        if str(self.base_dir) not in sys.path:
-            sys.path.insert(0, str(self.base_dir))
+        # PATH 환경 변수 업데이트
+        current_path = os.environ.get('PATH', '')
+        os.environ['PATH'] = f"{venv_scripts};{current_path}"
+        
+        # Python 경로 추가
+        sys.path.insert(0, venv_lib)
+        sys.path.insert(0, os.path.join(self.base_path, 'src'))
 
     def setup_logging(self):
         """서비스용 로깅 설정"""
@@ -246,229 +230,3 @@ if __name__ == '__main__':
     else:
         # 다른 인수들은 서비스 관리 명령어
         win32serviceutil.HandleCommandLine(FundEmailFetchService)
-# import win32serviceutil
-# import win32service
-# import win32event
-# import servicemanager
-# import sys
-# import os
-# import logging
-# import threading
-# import time
-# from pathlib import Path
-
-# # 실제 작업 스크립트 import
-# try:
-#     from main import TaskScheduler
-# except ImportError as e:
-#     print(f"main.py 또는 TaskScheduler 클래스를 찾을 수 없습니다: {e}")
-#     print("main.py 파일과 TaskScheduler 클래스가 올바르게 구현되어 있는지 확인하세요.")
-#     sys.exit(1)
-
-# class FundEmailFetchService(win32serviceutil.ServiceFramework):
-#     _svc_name_ = "FundEmailFetchService"
-#     _svc_display_name_ = "Fund Email Fetch Service"
-#     _svc_description_ = "정해진시간(5분)마다 fund 메일을 수집하여 DB에 저장하고 SFTP에 업로드하는 서비스"
-
-#     def __init__(self, args):
-#         win32serviceutil.ServiceFramework.__init__(self, args)
-#         self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
-#         self.is_alive = True
-#         self.scheduler = None
-#         self.scheduler_thread = None
-
-#         # 서비스 실행 경로 설정
-#         self.setup_paths()
-
-#         # 서비스 로그 설정
-#         self.setup_logging()
-
-#     def setup_paths(self):
-#         """서비스 실행 시 경로 설정"""
-#         # 현재 스크립트의 디렉토리를 기본 작업 디렉토리로 설정
-#         if getattr(sys, 'frozen', False):
-#             # 만약 exe로 빌드된 경우
-#             self.base_dir = Path(sys.executable).parent
-#         else:
-#             # 일반 Python 스크립트인 경우
-#             self.base_dir = Path(__file__).parent.absolute()
-        
-#         # 작업 디렉토리 변경
-#         os.chdir(self.base_dir)
-        
-#         # Python path에 현재 디렉토리 추가
-#         if str(self.base_dir) not in sys.path:
-#             sys.path.insert(0, str(self.base_dir))
-
-#     def setup_logging(self):
-#         """서비스용 로깅 설정"""
-#         log_path = Path("C:/fund_mail/logs")
-#         log_path.mkdir(parents=True, exist_ok=True)
-        
-#         logging.basicConfig(
-#             level=logging.INFO,
-#             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-#             handlers=[
-#                 logging.FileHandler(log_path / "service.log"),
-#                 logging.StreamHandler()
-#             ]
-#         )
-#         self.logger = logging.getLogger(__name__)
-
-#     def SvcStop(self):
-#         """서비스 중지"""
-#         self.logger.info("서비스 중지 요청 받음")
-#         self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
-        
-#         # 스케줄러 중지
-#         if self.scheduler:
-#             try:
-#                 self.scheduler.stop()
-#                 self.logger.info("스케줄러 중지 완료")
-#             except Exception as e:
-#                 self.logger.error(f"스케줄러 중지 중 오류: {e}")
-            
-#         # 스케줄러 스레드 종료 대기
-#         if self.scheduler_thread and self.scheduler_thread.is_alive():
-#             self.scheduler_thread.join(timeout=10)
-#             if self.scheduler_thread.is_alive():
-#                 self.logger.warning("스케줄러 스레드가 정상적으로 종료되지 않았습니다.")
-            
-#         self.is_alive = False
-#         win32event.SetEvent(self.hWaitStop)
-
-#     def SvcDoRun(self):
-#         """서비스 실행"""
-#         try:
-#             self.logger.info("서비스 시작 준비 중...")
-            
-#             # 서비스 시작 로그
-#             servicemanager.LogMsg(
-#                 servicemanager.EVENTLOG_INFORMATION_TYPE,
-#                 servicemanager.PYS_SERVICE_STARTED,
-#                 (self._svc_name_, '')
-#             )
-
-#             # TaskScheduler import (서비스 실행 후 import)
-#             try:
-#                 from main import TaskScheduler
-#                 self.logger.info("TaskScheduler 모듈 import 성공")
-#             except ImportError as e:
-#                 error_msg = f"TaskScheduler import 실패: {e}"
-#                 self.logger.error(error_msg)
-#                 servicemanager.LogErrorMsg(error_msg)
-#                 return
-
-#             # TaskScheduler를 별도 스레드에서 실행
-#             self.scheduler = TaskScheduler(interval=300)  # 5분
-#             self.scheduler_thread = threading.Thread(
-#                 target=self._run_scheduler, 
-#                 daemon=True
-#             )
-#             self.scheduler_thread.start()
-            
-#             self.logger.info("스케줄러 스레드 시작 완료")
-
-#             # 서비스 상태를 "실행 중"으로 보고
-#             self.ReportServiceStatus(win32service.SERVICE_RUNNING)
-
-#             # 서비스가 중지될 때까지 대기
-#             win32event.WaitForSingleObject(self.hWaitStop, win32event.INFINITE)
-            
-#             self.logger.info("서비스 정상 종료")
-            
-#         except Exception as e:
-#             error_msg = f"서비스 실행 중 오류: {e}"
-#             self.logger.error(error_msg)
-#             servicemanager.LogErrorMsg(error_msg)
-#             # 오류 발생 시 서비스 상태를 "중지됨"으로 변경
-#             self.ReportServiceStatus(win32service.SERVICE_STOPPED)
-
-
-#     def _run_scheduler(self):
-#         """스케줄러를 실행하는 내부 메서드"""
-#         try:
-#             self.logger.info("TaskScheduler 초기화 시작")
-            
-#             # 스케줄러 시작 전에 짧은 지연 (초기화 안정성)
-#             time.sleep(2)
-            
-#             self.scheduler.start()
-#             self.logger.info("TaskScheduler 시작 완료")
-            
-#             # 서비스가 중지될 때까지 대기
-#             while self.is_alive:
-#                 time.sleep(1)
-                
-#         except Exception as e:
-#             self.logger.error(f"스케줄러 실행 중 오류: {e}")
-#             # 스케줄러 오류 시 서비스도 중지
-#             self.SvcStop()
-#         finally:
-#             if self.scheduler:
-#                 try:
-#                     self.scheduler.stop()
-#                     self.logger.info("TaskScheduler 중지 완료")
-#                 except Exception as e:
-#                     self.logger.error(f"TaskScheduler 중지 중 오류: {e}")
-
-# def run_debug():
-#     """디버그 모드로 실행 (개발용)"""
-#     print("디버그 모드로 실행 중...")
-    
-#     # 경로 설정
-#     base_dir = Path(__file__).parent.absolute()
-#     os.chdir(base_dir)
-#     if str(base_dir) not in sys.path:
-#         sys.path.insert(0, str(base_dir))
-    
-#     # 로깅 설정
-#     log_path = base_dir / "logs"
-#     log_path.mkdir(exist_ok=True)
-    
-#     logging.basicConfig(
-#         level=logging.INFO,
-#         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-#         handlers=[
-#             logging.FileHandler(log_path / "debug.log", encoding='utf-8'),
-#             logging.StreamHandler()
-#         ]
-#     )
-#     logger = logging.getLogger(__name__)
-    
-#     try:
-#         # TaskScheduler import
-#         from main import TaskScheduler
-        
-#         scheduler = TaskScheduler(interval=300)  # 5분
-#         scheduler.start()
-        
-#         print("서비스가 실행 중입니다. Ctrl+C로 중지하세요.")
-#         logger.info("디버그 모드로 스케줄러 시작")
-        
-#         # 무한 대기 (main.py의 fetch_fund_mail() 함수와 동일한 방식)
-#         while True:
-#             time.sleep(1)
-            
-#     except KeyboardInterrupt:
-#         print("\n서비스를 중지합니다...")
-#         logger.info("사용자가 디버그 모드 스케줄러를 중단했습니다.")
-#         scheduler.stop()
-#         print("서비스가 중지되었습니다.")
-#     except Exception as e:
-#         logger.error(f"디버그 모드 실행 중 오류 발생: {e}")
-#         if 'scheduler' in locals():
-#             scheduler.stop()
-
-# if __name__ == '__main__':
-#     if len(sys.argv) == 1:
-#         # 인수가 없으면 서비스 모드로 실행
-#         servicemanager.Initialize()
-#         servicemanager.PrepareToHostSingle(FundEmailFetchService)
-#         servicemanager.StartServiceCtrlDispatcher()
-#     elif len(sys.argv) == 2 and sys.argv[1] == 'debug':
-#         # debug 인수가 있으면 디버그 모드로 실행
-#         run_debug()
-#     else:
-#         # 다른 인수들은 서비스 관리 명령어
-#         win32serviceutil.HandleCommandLine(FundEmailFetchService)

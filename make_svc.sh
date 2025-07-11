@@ -30,7 +30,7 @@ done
 
 echo "ℹ️  cmd를 관리자로 실행해야 합니다."
 echo "uv venv --python 3.12"
-echo ".venv\\Scripts\\activate.bat"
+echo "call .venv\\Scripts\\activate.bat"
 echo "uv sync --python 3.12"
 echo "✅  서비스용 디렉터리 준비 완료 : $DIST_DIR"
 

@@ -64,8 +64,9 @@
 cmd+r 관리자로
 cd c:\fund_mail
 c:\Users\PC\.local\bin\uv venv
-.venv\Scripts\activate.bat
+call .venv\Scripts\activate.bat
 c:\Users\PC\.local\bin\uv sync
+copy 3개의 dll to .venv
 ```
 
 1. make_one_day.sh
